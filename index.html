@@ -179,7 +179,7 @@
         var who = el('span', 'svc-who');
         ranges.forEach(function (r) {
           // Fellows by their name on the list (a calendar title may use another spelling, e.g. "Ellie").
-          var names = r.names.map(function (n, i) { return r.people[i] || n; }).join(' / ');
+          var names = r.display;
           var line = el('span', 'range' + (r.people.indexOf(me) !== -1 && me ? ' mine' : ''), names || 'Not on calendar');
           if (c.ranges.length > 1) { line.appendChild(document.createTextNode(' ')); line.appendChild(el('span', 'dates', span(r.start, r.end))); }
           who.appendChild(line);
