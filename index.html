@@ -42,7 +42,7 @@
         </div>
         <label class="override-toggle only-me" id="onlyMeRow" hidden>
           <input type="checkbox" id="onlyMe">
-          <span><b>Only me</b><br>Just your services, time off and cross-cover, and the living donor cases on your services.</span>
+          <span><b>Only me</b></span>
         </label>
       </section>
 
@@ -295,7 +295,7 @@
     }
     function renderTimeOff() {
       var t = state.timeOff; if (!t || !state.me) return;
-      $('timeOffTitle').textContent = 'Time off and cross-cover, ' + t.yearLabel;
+      $('timeOffTitle').textContent = 'Time off and cross-cover';
       if (!state.toFellow) state.toFellow = t.fellows.some(function (f) { return f.name === state.me.name; }) ? state.me.name : (t.fellows[0] || {}).name;
       var keys = $('toFellows'); clear(keys); keys.style.setProperty('--n', Math.min(4, t.fellows.length));
       t.fellows.forEach(function (f) {
@@ -348,8 +348,6 @@
     function renderYear() {
       var y = state.year; if (!y || !state.me) return;
       var me = state.me.name, t = $('year'); clear(t);
-      var first = y.months[0], last = y.months[y.months.length - 1];
-      $('yearTitle').textContent = 'Monthly assignments, ' + first.label.slice(0, 3) + ' ' + first.month.slice(0, 4) + ' – ' + last.label.slice(0, 3) + ' ' + last.month.slice(0, 4);
       var short = UI.shortNames(y.fellows);
       var thead = el('thead'), hr = el('tr');
       hr.appendChild(el('th', null, 'Month'));
