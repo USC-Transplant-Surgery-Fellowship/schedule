@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fellowship Call Schedule</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23990000'/%3E%3Crect x='5' y='7' width='22' height='13' rx='3' fill='%23c3ce9c'/%3E%3Cpath d='M8 11h2v2H8zm3 0h2v2h-2zm3 0h2v2h-2zm-6 4h2v2H8zm3 0h2v2h-2z' fill='%23232c17'/%3E%3Crect x='9' y='24' width='14' height='3' rx='1.5' fill='%23ffcc00'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#990000">
+  <link rel="preload" href="assets/fonts/doto.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/atkinson-hyperlegible-next.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/styles.css">
+  <link rel="stylesheet" href="assets/schedule.css">
+  <script src="assets/site.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async></script>
+  <script src="assets/api.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <div class="lcd">
+        <div class="eyebrow">USC Transplant Surgery Fellowship</div>
+        <h1>Call schedule</h1>
+      </div>
+      <div class="who" id="who"></div>
+    </div>
+  </header>
+
+  <div id="auth"><section class="card"><div class="loading">Loading…</div></section></div>
+  <main id="app" class="split sched" hidden>
+    <div class="col side">
+      <section class="card" id="periodCard">
+        <h2>Show</h2>
+        <div class="keys" style="--n:2" role="radiogroup" aria-label="Quick choices" id="presets">
+          <button class="tab" type="button" role="radio" data-kind="week" data-preset="thisWeek">This week</button>
+          <button class="tab" type="button" role="radio" data-kind="week" data-preset="nextWeek">Next week</button>
+          <button class="tab" type="button" role="radio" data-kind="month" data-preset="thisMonth">This month</button>
+          <button class="tab" type="button" role="radio" data-kind="month" data-preset="nextMonth">Next month</button>
+        </div>
+        <div class="pick">
+          <div><label class="label" for="weekPick">Any week</label><input id="weekPick" type="date"></div>
+          <div><label class="label" for="monthPick">Any month</label><select id="monthPick"></select></div>
+        </div>
+        <label class="override-toggle only-me" id="onlyMeRow" hidden>
+          <input type="checkbox" id="onlyMe">
+          <span><b>Only me</b><br>Just your services, time off and cross-cover, and the living donor cases on your services.</span>
+        </label>
+      </section>
+
+      <section class="card" id="ldCard">
+        <h2>Add a living donor case</h2>
+        <div class="field"><label class="label" for="ldDate">Date</label><input id="ldDate" type="date"></div>
+        <div class="field"><span class="label">Organ</span><div class="keys" style="--n:2" role="radiogroup" aria-label="Organ" id="ldOrgan"></div></div>
+        <div class="field"><span class="label">Procedure</span><div class="keys" style="--n:2" role="radiogroup" aria-label="Procedure" id="ldKind"></div></div>
+        <div class="field"><span class="label">Location</span><div class="keys" style="--n:2" role="radiogroup" aria-label="Location" id="ldLocation"></div></div>
+        <div class="field"><span class="label">Time</span><div class="keys" style="--n:2" role="radiogroup" aria-label="Time" id="ldSlot"></div></div>
+        <div class="field"><label class="label" for="ldAttending">Attending</label><select id="ldAttending"></select></div>
+        <div class="field"><label class="label" for="ldMrn">MRN <span class="hint-inline">(patient identifier number)</span></label>
+          <input id="ldMrn" type="text" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="e.g. 4924598"></div>
+        <div class="ld-preview" id="ldPreview"></div>
+        <button class="primary" id="ldAdd" type="button" disabled>Add case</button>
+        <div class="status" id="ldFormStatus" role="status" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <div class="col wide">
+      <section class="card" id="resultCard">
+        <div class="period-title">
+          <h2 id="periodLabel">Loading…</h2>
+          <div class="stepper">
+            <button class="secondary" id="prevBtn" type="button" aria-label="Previous">‹ Previous</button>
+            <button class="secondary" id="nextBtn" type="button" aria-label="Next">Next ›</button>
+          </div>
+        </div>
+        <div class="status" id="resultStatus" role="status" aria-live="polite"></div>
+        <div id="periodBody"><div class="loading">Loading…</div></div>
+      </section>
+
+      <section class="card" id="yearCard">
+        <h2 id="yearTitle">Monthly assignments</h2>
+        <p class="hint">Which service each fellow is on, by month.</p>
+        <div class="year-wrap"><table class="year" id="year"><tbody><tr><td class="loading">Loading…</td></tr></tbody></table></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+  (function () {
+    var state = { kind: 'week', key: '', data: null, onlyMe: false, me: null, year: null, armed: '', ld: { organ: '', kind: '', location: '', slot: '' } };
+    var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    function $(id) { return document.getElementById(id); }
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
+    function busy(on) { document.body.classList[on ? 'add' : 'remove']('busy'); }
+    function showStatus(box, kind, title, lines) {
+      clear(box);
+      if (!kind) return;
+      var b = el('div', 'box ' + kind);
+      if (title) b.appendChild(el('b', null, title));
+      if (lines && lines.length) { var ul = el('ul'); lines.forEach(function (l) { ul.appendChild(el('li', null, l)); }); b.appendChild(ul); }
+      box.appendChild(b);
+    }
+    function failTo(box, title) { return function (err) { busy(false); if (err.code !== 'auth') showStatus(box, 'error', title, [err.message]); }; }
+
+    /* ── dates (keys are 'yyyy-MM-dd') ── */
+    function ymd(k) { return k.split('-').map(Number); }
+    function addDays(k, n) { var p = ymd(k); return new Date(Date.UTC(p[0], p[1] - 1, p[2] + n)).toISOString().slice(0, 10); }
+    function dayLabel(k) { var p = ymd(k); return DOW[new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay()] + ' ' + p[1] + '/' + p[2]; }
+    function span(a, b) { return a === b ? dayLabel(a) : dayLabel(a) + ' – ' + dayLabel(b); }
+    function monthLabel(m) { var p = ymd(m + '-01'); return MONTHS[p[1] - 1] + ' ' + p[0]; }
+    function addMonths(m, n) { var p = ymd(m + '-01'); var d = new Date(Date.UTC(p[0], p[1] - 1 + n, 1)); return d.toISOString().slice(0, 7); }
+    function todayKey() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+
+    /* ── choosing the period ── */
+    function fromUrl() {
+      var q = new URLSearchParams(location.search);
+      if (/^\d{4}-\d{2}$/.test(q.get('month') || '')) return { kind: 'month', key: q.get('month') };
+      if (/^\d{4}-\d{2}-\d{2}$/.test(q.get('week') || '')) return { kind: 'week', key: q.get('week') };
+      return { kind: 'week', key: '' };
+    }
+    function load(kind, key, keepStatus) {
+      state.kind = kind; state.key = key; state.armed = '';
+      busy(true);
+      if (!keepStatus) showStatus($('resultStatus'));
+      TimeOffApi.run('apiScheduleGet', [kind, key], function (res) {
+        busy(false);
+        state.data = res; state.key = res.key; state.me = res.me;
+        try { history.replaceState(null, '', '?' + res.kind + '=' + res.key); } catch (e) { /* file preview */ }
+        render();
+      }, failTo($('resultStatus'), 'Couldn’t load the schedule'));
+    }
+    function setupPicks() {
+      var sel = $('monthPick'), now = todayKey().slice(0, 7);
+      clear(sel);
+      var pick = el('option', null, 'Choose…'); pick.value = ''; pick.disabled = true; sel.appendChild(pick);
+      for (var i = -12; i <= 12; i++) { var m = addMonths(now, i); var o = el('option', null, monthLabel(m)); o.value = m; sel.appendChild(o); }
+      document.querySelectorAll('#presets .tab').forEach(function (b) {
+        b.addEventListener('click', function () { if (state.data) load(b.dataset.kind, state.data.presets[b.dataset.preset]); });
+      });
+      $('weekPick').addEventListener('change', function (e) { if (e.target.value) load('week', e.target.value); });
+      $('monthPick').addEventListener('change', function (e) { if (e.target.value) load('month', e.target.value); });
+      $('prevBtn').addEventListener('click', function () { step(-1); });
+      $('nextBtn').addEventListener('click', function () { step(1); });
+      $('onlyMe').addEventListener('change', function (e) { state.onlyMe = e.target.checked; render(); });
+    }
+    function step(n) {
+      if (!state.data) return;
+      if (state.kind === 'month') load('month', addMonths(state.key, n)); else load('week', addDays(state.key, 7 * n));
+    }
+
+    /* ── drawing the period ── */
+    function render() {
+      var d = state.data, p = d.period, me = state.me.name, only = state.onlyMe && !!me;
+      $('periodLabel').textContent = d.kind === 'month' ? p.heading : 'Week of ' + span(p.start, p.end);
+      $('prevBtn').textContent = '‹ ' + (d.kind === 'month' ? 'Previous month' : 'Previous week');
+      $('nextBtn').textContent = (d.kind === 'month' ? 'Next month' : 'Next week') + ' ›';
+      document.querySelectorAll('#presets .tab').forEach(function (b) {
+        var on = b.dataset.kind === d.kind && d.presets[b.dataset.preset] === d.key;
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+      });
+      $('weekPick').value = d.kind === 'week' ? d.key : '';
+      $('monthPick').value = d.kind === 'month' ? d.key : '';
+      $('onlyMeRow').hidden = !me;
+
+      var body = $('periodBody'); clear(body);
+      if (only) body.appendChild(el('p', 'filter-note', 'Showing only what involves ' + me + '.'));
+      var isMe = function (name) { return !!me && name === me; };
+
+      // Services
+      var svc = section(body, 'Services');
+      var shown = 0;
+      p.coverage.forEach(function (c) {
+        var ranges = c.ranges.filter(function (r) { return !only || r.people.indexOf(me) !== -1; });
+        if (!ranges.length) return;
+        shown++;
+        var li = el('li', 'svc');
+        li.appendChild(el('span', 'svc-name', c.label));
+        var who = el('span', 'svc-who');
+        ranges.forEach(function (r) {
+          // Fellows by their name on the list (a calendar title may use another spelling, e.g. "Ellie").
+          var names = r.names.map(function (n, i) { return r.people[i] || n; }).join(' / ');
+          var line = el('span', 'range' + (r.people.indexOf(me) !== -1 && me ? ' mine' : ''), names || 'Not on calendar');
+          if (c.ranges.length > 1) { line.appendChild(document.createTextNode(' ')); line.appendChild(el('span', 'dates', span(r.start, r.end))); }
+          who.appendChild(line);
+        });
+        li.appendChild(who);
+        svc.appendChild(li);
+      });
+      if (!shown) svc.appendChild(el('li', 'empty', only ? 'You aren’t on a service in this period.' : 'None'));
+
+      // Time off
+      var off = section(body, 'Time off');
+      var offs = p.timeOff.filter(function (t) { return !only || isMe(t.person); });
+      offs.forEach(function (t) {
+        var li = el('li', isMe(t.person) ? 'mine' : '');
+        li.appendChild(el('b', null, t.person || t.name));
+        if (t.reason) li.appendChild(document.createTextNode(' — ' + t.reason));
+        li.appendChild(el('span', 'when', span(t.start, t.end)));
+        off.appendChild(li);
+      });
+      if (!offs.length) off.appendChild(el('li', 'empty', 'None'));
+
+      // Cross-cover
+      var cc = section(body, 'Cross-cover');
+      var ccs = p.crossCover.filter(function (c) { return !only || isMe(c.person); });
+      ccs.forEach(function (c) {
+        var li = el('li', isMe(c.person) ? 'mine' : '');
+        li.appendChild(el('b', null, c.person || c.coverer));
+        li.appendChild(document.createTextNode(' covers ' + c.service));
+        li.appendChild(el('span', 'when', span(c.start, c.end)));
+        cc.appendChild(li);
+      });
+      if (!ccs.length) cc.appendChild(el('li', 'empty', 'None'));
+
+      // Living donors
+      var lds = section(body, 'Living donors');
+      var cases = p.livingDonors.filter(function (l) { return !only || l.people.indexOf(me) !== -1; });
+      cases.forEach(function (l) { lds.appendChild(ldRow(l)); });
+      if (!cases.length) lds.appendChild(el('li', 'empty', only ? 'No cases on your services.' : 'None'));
+
+      fillLdForm(d.livingDonorForm);
+      renderYear();
+    }
+    function section(body, title) {
+      var s = el('div', 'sec'); s.appendChild(el('h3', null, title));
+      var ul = el('ul', 'rows'); s.appendChild(ul); body.appendChild(s); return ul;
+    }
+    function ldRow(l) {
+      var li = el('li', 'ld');
+      var left = el('div');
+      var slot = (state.data.livingDonorForm.slots.filter(function (s) { return s.key === l.slot; })[0]);
+      left.appendChild(el('span', 'when', dayLabel(l.day) + (slot ? ' · ' + slot.label + ' (' + slot.hours + ')' : l.time ? ' · ' + l.time : '')));
+      left.appendChild(el('span', 'ld-title', l.title));
+      var meta = el('div', 'ld-meta');
+      meta.appendChild(el('span', 'chip svc-chip', l.service + ' calendar'));
+      if (l.location) meta.appendChild(document.createTextNode(l.location));
+      left.appendChild(meta);
+      li.appendChild(left);
+      if (l.removable) {
+        var armed = state.armed === l.id;
+        var b = el('button', 'secondary small' + (armed ? ' armed' : ''), armed ? 'Tap again to remove' : 'Remove');
+        b.type = 'button';
+        b.addEventListener('click', function () {
+          if (state.armed !== l.id) { state.armed = l.id; render(); return; }
+          state.armed = ''; busy(true);
+          TimeOffApi.run('apiLdRemove', [l.id, l.service], function (res) {
+            busy(false);
+            if (!res.ok) { showStatus($('resultStatus'), 'error', 'Not removed', res.errors); render(); return; }
+            showStatus($('resultStatus'), 'ok', 'Removed', res.lines);
+            load(state.kind, state.key, true);
+          }, failTo($('resultStatus'), 'Not removed'));
+        });
+        li.appendChild(b);
+      }
+      return li;
+    }
+
+    /* ── year of assignments ── */
+    function loadYear() {
+      TimeOffApi.run('apiScheduleYear', [], function (y) { state.year = y; renderYear(); }, function (err) {
+        if (err.code === 'auth') return;
+        var t = $('year'); clear(t); var tr = el('tr'); tr.appendChild(el('td', 'loading', 'Couldn’t load the assignments: ' + err.message)); t.appendChild(tr);
+      });
+    }
+    function renderYear() {
+      var y = state.year; if (!y || !state.me) return;
+      var me = state.me.name, t = $('year'); clear(t);
+      var first = y.months[0], last = y.months[y.months.length - 1];
+      $('yearTitle').textContent = 'Monthly assignments, ' + first.label.slice(0, 3) + ' ' + first.month.slice(0, 4) + ' – ' + last.label.slice(0, 3) + ' ' + last.month.slice(0, 4);
+      var firstNames = y.fellows.map(function (n) { return n.split(' ')[0]; });
+      var short = y.fellows.map(function (n, i) { return firstNames.filter(function (f) { return f === firstNames[i]; }).length > 1 ? n : firstNames[i]; });
+      var thead = el('thead'), hr = el('tr');
+      hr.appendChild(el('th', null, 'Month'));
+      y.fellows.forEach(function (n, i) { hr.appendChild(el('th', n === me ? 'me' : '', short[i])); });
+      thead.appendChild(hr); t.appendChild(thead);
+      var tb = el('tbody');
+      y.months.forEach(function (m) {
+        var tr = el('tr', m.current ? 'now' : '');
+        tr.appendChild(el('td', null, m.label.slice(0, 3) + ' ' + m.month.slice(0, 4)));
+        y.fellows.forEach(function (n) {
+          var list = m.byFellow[n] || [];
+          tr.appendChild(el('td', n === me ? 'me' : '', list.length ? list.join(' / ') : '—'));
+        });
+        tb.appendChild(tr);
+      });
+      t.appendChild(tb);
+    }
+
+    /* ── adding a living donor case ── */
+    var ldBuilt = false;
+    function keyGroup(id, field, options) {
+      var box = $(id); clear(box);
+      options.forEach(function (o) {
+        var b = el('button', 'tab', o.label); b.type = 'button'; b.setAttribute('role', 'radio');
+        if (o.hours) b.appendChild(el('small', null, o.hours));
+        b.setAttribute('aria-checked', state.ld[field] === o.key ? 'true' : 'false');
+        b.addEventListener('click', function () { state.ld[field] = o.key; keyGroup(id, field, options); ldPreview(); });
+        box.appendChild(b);
+      });
+    }
+    function fillLdForm(f) {
+      if (ldBuilt) return;
+      ldBuilt = true;
+      keyGroup('ldOrgan', 'organ', f.organs.map(function (x) { return { key: x, label: x }; }));
+      keyGroup('ldKind', 'kind', f.kinds.map(function (x) { return { key: x, label: x }; }));
+      keyGroup('ldLocation', 'location', f.locations);
+      keyGroup('ldSlot', 'slot', f.slots);
+      var sel = $('ldAttending'); clear(sel);
+      var blank = el('option', null, 'Choose…'); blank.value = ''; sel.appendChild(blank);
+      f.attendings.forEach(function (a) { var o = el('option', null, a); o.value = a; sel.appendChild(o); });
+      $('ldDate').min = state.me.isAdmin ? '' : state.data.today;
+      ['ldDate', 'ldAttending', 'ldMrn'].forEach(function (id) { $(id).addEventListener('input', ldPreview); $(id).addEventListener('change', ldPreview); });
+      $('ldAdd').addEventListener('click', addCase);
+      ldPreview();
+    }
+    function ldValues() {
+      return { date: $('ldDate').value, organ: state.ld.organ, kind: state.ld.kind, location: state.ld.location, slot: state.ld.slot,
+        attending: $('ldAttending').value, mrn: $('ldMrn').value.trim() };
+    }
+    function ldPreview() {
+      var v = ldValues(), box = $('ldPreview'); clear(box);
+      var missing = [];
+      if (!v.date) missing.push('date'); if (!v.organ) missing.push('organ'); if (!v.kind) missing.push('procedure');
+      if (!v.location) missing.push('location'); if (!v.slot) missing.push('time'); if (!v.attending) missing.push('attending'); if (!v.mrn) missing.push('MRN');
+      $('ldAdd').disabled = missing.length > 0;
+      if (missing.length) { box.appendChild(document.createTextNode('Still needed: ' + missing.join(', ') + '.')); return; }
+      var slot = state.data.livingDonorForm.slots.filter(function (s) { return s.key === v.slot; })[0];
+      var cal = v.location === 'CHLA' ? 'CHLA' : v.organ;
+      box.appendChild(el('b', null, 'Living Donor ' + v.organ + ' ' + v.kind + ' (' + v.attending + ') - ' + v.mrn));
+      box.appendChild(document.createTextNode(dayLabel(v.date) + ', ' + slot.hours + ' · on the ' + cal + ' calendar'));
+    }
+    function addCase() {
+      var v = ldValues();
+      busy(true); $('ldAdd').disabled = true;
+      TimeOffApi.run('apiLdAdd', [v], function (res) {
+        busy(false);
+        if (!res.ok) { showStatus($('ldFormStatus'), 'error', 'Not added', res.errors); ldPreview(); return; }
+        showStatus($('ldFormStatus'), 'ok', 'Added to the calendar', res.lines);
+        $('ldMrn').value = ''; ldPreview();
+        var p = state.data.period;
+        if (v.date >= p.start && v.date <= p.end) load(state.kind, state.key, true);
+      }, function (err) { busy(false); ldPreview(); if (err.code !== 'auth') showStatus($('ldFormStatus'), 'error', 'Not added', [err.message]); });
+    }
+
+    setupPicks();
+    TimeOffApi.start({
+      need: 'member',
+      links: [{ label: 'Time off', href: 'https://timeoff.usctransplant.life/' }, { label: 'Admin', href: 'admin/', adminOnly: true }],
+      onReady: function () { var u = fromUrl(); load(u.kind, u.key); loadYear(); },
+    });
+  })();
+  </script>
+</body>
+</html>
