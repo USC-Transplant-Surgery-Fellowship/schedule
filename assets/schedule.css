@@ -7,7 +7,7 @@
 @media (max-width: 959px) {
   main.sched:not([hidden]) { display: flex; flex-direction: column; }
   main.sched > .col { display: contents; }
-  #periodCard { order: 1; } #resultCard { order: 2; } #ldCard { order: 3; } #yearCard { order: 4; }
+  #periodCard { order: 1; } #resultCard { order: 2; } #ldCard { order: 3; } #upcomingCard { order: 4; } #yearCard { order: 5; } #timeOffCard { order: 6; }
   #assignCard { order: 1; } #oneOffCard { order: 2; } #recipientsCard { order: 3; } #autoCard { order: 4; }
   #attendingsCard { order: 5; } #logCard { order: 6; }
 }
@@ -15,6 +15,11 @@
 /* ── key groups (choose one) ── */
 .keys { display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
 .keys .tab { font-size: 15px; }
+#upcomingFilter .tab { padding: 8px 4px; min-height: 40px; font-size: 14px; }
+#upcoming .sec h3 { color: var(--accent); }
+#toFellows .tab { padding: 8px 4px; min-height: 40px; font-size: 14px; }
+#toBody .stats { margin-bottom: 4px; }
+.rows > li.past { opacity: .62; }
 .tab[aria-checked="true"] {
   color: #fff; background: var(--cardinal); border-color: var(--cardinal-deep);
   box-shadow: 0 2px 0 var(--cardinal-deep), inset 0 -3px 0 var(--gold);
@@ -125,10 +130,6 @@
 .next-list li { padding: 6px 0; border-top: 1px solid var(--line); }
 .next-list li:first-child { border-top: 0; }
 .next-list span { display: block; color: var(--muted); font-size: 14px; }
-.log { list-style: none; margin: 0; padding: 0; font-size: 14px; }
-.log li { padding: 7px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
-.log li:first-child { border-top: 0; padding-top: 0; }
-.log .when { font-size: 13px; }
 
 /* ── admin: one-off email ── */
 textarea {
