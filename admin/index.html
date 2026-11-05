@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fellowship Call Schedule — Admin</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23990000'/%3E%3Crect x='5' y='7' width='22' height='13' rx='3' fill='%23c3ce9c'/%3E%3Cpath d='M8 11h2v2H8zm3 0h2v2h-2zm3 0h2v2h-2zm-6 4h2v2H8zm3 0h2v2h-2z' fill='%23232c17'/%3E%3Crect x='9' y='24' width='14' height='3' rx='1.5' fill='%23ffcc00'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#990000">
+  <link rel="preload" href="../assets/fonts/doto.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="../assets/fonts/atkinson-hyperlegible-next.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="../assets/styles.css">
+  <link rel="stylesheet" href="../assets/schedule.css">
+  <script src="../assets/site.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async></script>
+  <script src="../assets/api.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <div class="lcd">
+        <div class="eyebrow">USC Transplant Surgery Fellowship</div>
+        <h1>Schedule admin</h1>
+      </div>
+      <div class="who" id="who"></div>
+    </div>
+  </header>
+
+  <div id="auth"><section class="card"><div class="loading">Loading…</div></section></div>
+  <main id="app" class="split sched" hidden>
+    <div class="col side">
+      <section class="card" id="recipientsCard">
+        <h2>Who gets the emails</h2>
+        <p class="hint">Weekly: Sundays, for the coming week. Monthly: a week before the 1st. Previews: the day before each, so you can fix the calendar first.</p>
+        <div class="status" id="recipientsStatus" role="status" aria-live="polite"></div>
+        <ul class="plist" id="recipients"></ul>
+        <div class="add-row">
+          <label class="label" for="newRecipient">Add an address</label>
+          <input id="newRecipient" type="email" autocomplete="off" placeholder="name@gmail.com">
+          <div class="toggles" id="newRecipientToggles"></div>
+          <button class="secondary" id="addRecipient" type="button">Add address</button>
+        </div>
+      </section>
+
+      <section class="card" id="autoCard">
+        <h2>Automatic emails</h2>
+        <div class="status" id="autoStatus" role="status" aria-live="polite"></div>
+        <div id="auto"></div>
+      </section>
+
+      <section class="card" id="attendingsCard">
+        <h2>Attendings</h2>
+        <p class="hint">The names offered when someone adds a living donor case. Changing the list doesn’t change cases already on the calendar.</p>
+        <div class="status" id="attendingsStatus" role="status" aria-live="polite"></div>
+        <ul class="plist" id="attendings"></ul>
+        <div class="add-row">
+          <label class="label" for="newAttending">Add an attending</label>
+          <div class="row"><input id="newAttending" type="text" autocomplete="off" maxlength="40" placeholder="Last name, as in the case title">
+            <button class="secondary" id="addAttending" type="button">Add</button></div>
+        </div>
+      </section>
+
+      <section class="card" id="logCard">
+        <h2>Recent changes</h2>
+        <ul class="log" id="log"></ul>
+      </section>
+    </div>
+
+    <div class="col wide">
+      <section class="card" id="assignCard">
+        <h2>Monthly assignments</h2>
+        <p class="hint">All four services must be covered, and each fellow can be on only one service a month (cross-cover is separate). Saving updates the events on the service calendars.</p>
+        <ul class="months" id="months"><li class="loading">Loading…</li></ul>
+        <details class="past" id="pastMonths" hidden><summary id="pastSummary">Earlier months</summary><ul class="months" id="monthsPast"></ul></details>
+      </section>
+
+      <section class="card" id="oneOffCard">
+        <h2>Send a one-off email</h2>
+        <div class="keys" style="--n:2" role="radiogroup" aria-label="Kind of email" id="oneOffKind">
+          <button class="tab" type="button" role="radio" data-kind="week">Weekly</button>
+          <button class="tab" type="button" role="radio" data-kind="month">Monthly</button>
+        </div>
+        <div class="field" id="oneOffWeekRow"><label class="label" for="oneOffWeek">Week of</label><input id="oneOffWeek" type="date"></div>
+        <div class="field" id="oneOffMonthRow"><label class="label" for="oneOffMonth">Month</label><select id="oneOffMonth"></select></div>
+        <div class="field"><label class="label" for="oneOffMessage">Message at the top <span class="hint-inline">(optional)</span></label>
+          <textarea id="oneOffMessage" maxlength="5000" placeholder="e.g. Reminder: the holiday schedule below has changed."></textarea></div>
+        <span class="label">Preview</span>
+        <div class="mail">
+          <div class="mail-head"><div><b id="mailSubject">…</b></div><div id="mailTo"></div></div>
+          <iframe id="mailFrame" title="Email preview" sandbox=""></iframe>
+        </div>
+        <div class="send-row">
+          <button class="secondary" id="sendTest" type="button">Send a test to me</button>
+          <button class="primary danger" id="sendLive" type="button">Send</button>
+        </div>
+        <div class="status" id="oneOffStatus" role="status" aria-live="polite"></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+  (function () {
+    var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    var state = { view: null, drafts: {}, monthStatus: {}, armed: '', editing: '', newToggles: { weekly: true, monthly: true, preview: false },
+      oneOff: { kind: 'week', week: '', month: '', preview: null, seq: 0 }, me: '' };
+    var timer = null;
+
+    function $(id) { return document.getElementById(id); }
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
+    function busy(on) { document.body.classList[on ? 'add' : 'remove']('busy'); }
+    function showStatus(box, kind, title, lines) {
+      clear(box);
+      if (!kind) return;
+      var b = el('div', 'box ' + kind);
+      if (title) b.appendChild(el('b', null, title));
+      if (lines && lines.length) { var ul = el('ul'); lines.forEach(function (l) { ul.appendChild(el('li', null, l)); }); b.appendChild(ul); }
+      box.appendChild(b);
+    }
+    function button(cls, text, fn) { var b = el('button', cls, text); b.type = 'button'; b.addEventListener('click', fn); return b; }
+    /** A button that needs a second tap. id must be unique on the page. */
+    function confirmButton(id, cls, text, armedText, fn) {
+      var armed = state.armed === id;
+      return button(cls + (armed ? ' armed' : ''), armed ? armedText : text, function () {
+        if (state.armed !== id) { state.armed = id; render(); return; }
+        state.armed = ''; fn();
+      });
+    }
+    /**
+     * Calls the server; on { ok, lines, view } re-draws everything and shows the lines in box.
+     * box can be a function returning the element, for boxes that are re-drawn (a month's row).
+     */
+    function change(fn, args, box, okTitle, failTitle, after) {
+      var target = function () { return typeof box === 'function' ? box() : box; };
+      busy(true);
+      TimeOffApi.run(fn, args, function (res) {
+        busy(false);
+        if (!res.ok) { render(); showStatus(target(), 'error', failTitle, res.errors); return; }
+        if (res.view) state.view = res.view;
+        if (after) after(res);
+        render();
+        showStatus(target(), 'ok', okTitle, res.lines);
+      }, function (err) { busy(false); if (err.code !== 'auth') { render(); showStatus(target(), 'error', failTitle, [err.message]); } });
+    }
+    function monthStatus(month) { return function () { return document.querySelector('#month-' + month + ' .status'); }; }
+    function monthLabel(m) { var p = m.split('-').map(Number); return MONTHS[p[1] - 1] + ' ' + p[0]; }
+    function addMonths(m, n) { var p = m.split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1 + n, 1)).toISOString().slice(0, 7); }
+
+    function loadAll() {
+      busy(true);
+      TimeOffApi.run('apiAdminScheduleGet', [], function (v) {
+        busy(false); state.view = v;
+        if (!state.oneOff.week) { state.oneOff.week = v.email.defaults.week; state.oneOff.month = v.email.defaults.month; }
+        render(); refreshPreview();
+      }, function (err) { busy(false); if (err.code !== 'auth') showStatus($('oneOffStatus'), 'error', 'Couldn’t load the admin page', [err.message]); });
+    }
+
+    function render() {
+      if (!state.view) return;
+      renderMonths(); renderRecipients(); renderAuto(); renderAttendings(); renderLog(); renderOneOff();
+    }
+
+    /* ── monthly assignments ── */
+    function currentOf(m, svc) {
+      var s = m.services[svc];
+      return s.names.length === 1 && !s.irregular && state.view.year.fellows.indexOf(s.names[0]) !== -1 ? s.names[0] : '';
+    }
+    function draftOf(m) {
+      var d = state.drafts[m.month] || {};
+      var out = {};
+      state.view.year.services.forEach(function (svc) { out[svc] = svc in d ? d[svc] : currentOf(m, svc); });
+      return out;
+    }
+    function shortNames(names) {
+      var first = names.map(function (n) { return n.split(' ')[0]; });
+      var out = {};
+      names.forEach(function (n, i) { out[n] = first.filter(function (f) { return f === first[i]; }).length > 1 ? n : first[i]; });
+      return out;
+    }
+    function renderMonths() {
+      var ul = $('months'), past = $('monthsPast'); clear(ul); clear(past);
+      var y = state.view.year, short = shortNames(y.fellows), thisMonth = state.view.today.slice(0, 7);
+      var earlier = y.months.filter(function (m) { return m.month < thisMonth; });
+      $('pastMonths').hidden = !earlier.length;
+      if (earlier.length) $('pastSummary').textContent = 'Earlier months (' + earlier[0].label + (earlier.length > 1 ? ' – ' + earlier[earlier.length - 1].label : '') + ')';
+      y.months.forEach(function (m) {
+        var li = el('li', 'month' + (m.current ? ' now' : ''));
+        li.id = 'month-' + m.month;
+        var head = el('div', 'month-head');
+        head.appendChild(el('b', null, m.label + (m.current ? ' (this month)' : '')));
+        li.appendChild(head);
+        var draft = draftOf(m), changed = false, counts = {};
+        var grid = el('div', 'month-grid');
+        y.services.forEach(function (svc) {
+          var lab = el('label'); lab.appendChild(document.createTextNode(svc));
+          var sel = el('select'); sel.setAttribute('aria-label', svc + ', ' + m.label);
+          var none = el('option', null, '—'); none.value = ''; sel.appendChild(none);
+          y.fellows.forEach(function (n) { var o = el('option', null, short[n]); o.value = n; o.title = n; sel.appendChild(o); });
+          sel.value = draft[svc];
+          if (draft[svc] !== currentOf(m, svc) || m.services[svc].irregular && draft[svc]) { sel.classList.add('changed'); changed = true; }
+          if (draft[svc]) counts[draft[svc]] = (counts[draft[svc]] || 0) + 1;
+          sel.addEventListener('change', function () {
+            state.drafts[m.month] = state.drafts[m.month] || {};
+            state.drafts[m.month][svc] = sel.value; delete state.monthStatus[m.month]; renderMonths();
+          });
+          lab.appendChild(sel); grid.appendChild(lab);
+        });
+        li.appendChild(grid);
+        var notes = [];
+        y.services.forEach(function (svc) {
+          var s = m.services[svc];
+          if (s.recurring) notes.push(svc + ' is a repeating event — change it in Google Calendar.');
+          else if (s.irregular && s.names.length) notes.push(svc + ' on the calendar now: ' + s.detail + '. Saving replaces it with one person for the whole month.');
+        });
+        var missing = y.services.filter(function (svc) { return !draft[svc]; });
+        var dups = Object.keys(counts).filter(function (n) { return counts[n] > 1; });
+        dups.forEach(function (n) { notes.push(n + ' is chosen for more than one service.'); });
+        if (missing.length && changed) notes.push('Choose someone for ' + missing.join(', ') + '.');
+        else if (missing.length === y.services.length) notes.push('Nobody assigned yet.');
+        else if (missing.length) notes.push(missing.join(', ') + ' ' + (missing.length === 1 ? 'has' : 'have') + ' nobody assigned.');
+        notes.forEach(function (n) { li.appendChild(el('div', 'month-note' + (/repeating|more than one|Choose|nobody|Nobody/.test(n) ? '' : ' muted'), n)); });
+        var any = y.services.some(function (svc) { return m.services[svc].names.length; });
+        if (any) head.appendChild(confirmButton('clear-' + m.month, 'linkbtn', 'Remove month', 'Tap again to remove all four', function () {
+          change('apiAdminClearAssignments', [m.month], monthStatus(m.month), 'Removed', 'Not removed', function () { delete state.drafts[m.month]; });
+        }));
+        if (changed) {
+          var actions = el('div', 'month-actions');
+          var save = button('primary small', 'Save ' + m.label.split(' ')[0], function () {
+            change('apiAdminSetAssignments', [m.month, draftOf(m)], monthStatus(m.month), 'Saved', 'Not saved', function () { delete state.drafts[m.month]; });
+          });
+          save.disabled = missing.length > 0 || dups.length > 0;
+          actions.appendChild(save);
+          actions.appendChild(button('secondary small', 'Undo', function () { delete state.drafts[m.month]; renderMonths(); }));
+          li.appendChild(actions);
+        }
+        var st = el('div', 'status'); st.setAttribute('role', 'status'); li.appendChild(st);
+        (m.month < thisMonth ? past : ul).appendChild(li);
+      });
+    }
+
+    /* ── recipients ── */
+    function toggles(box, values, onChange) {
+      [['weekly', 'Weekly'], ['monthly', 'Monthly'], ['preview', 'Previews']].forEach(function (k) {
+        var t = button('toggle', k[1], function () { onChange(k[0], !values[k[0]]); });
+        t.setAttribute('aria-pressed', values[k[0]] ? 'true' : 'false');
+        box.appendChild(t);
+      });
+    }
+    function renderRecipients() {
+      var ul = $('recipients'); clear(ul);
+      var list = state.view.email.recipients;
+      list.forEach(function (r) {
+        var li = el('li');
+        li.appendChild(el('span', 'addr', r.email));
+        var row = el('div', 'toggles');
+        toggles(row, r, function (k, v) {
+          var next = { type: 'update', key: r.email, email: r.email, weekly: r.weekly, monthly: r.monthly, preview: r.preview };
+          next[k] = v;
+          change('apiAdminChangeRecipients', [next], $('recipientsStatus'), 'Saved', 'Not saved');
+        });
+        row.appendChild(confirmButton('rm-' + r.email, 'secondary small', 'Remove', 'Tap again', function () {
+          change('apiAdminChangeRecipients', [{ type: 'remove', key: r.email }], $('recipientsStatus'), 'Removed', 'Not removed');
+        }));
+        li.appendChild(row);
+        ul.appendChild(li);
+      });
+      if (!list.length) ul.appendChild(el('li', 'empty', 'Nobody gets the emails yet.'));
+      var nt = $('newRecipientToggles'); clear(nt);
+      toggles(nt, state.newToggles, function (k, v) { state.newToggles[k] = v; renderRecipients(); });
+    }
+
+    /* ── automatic emails ── */
+    function renderAuto() {
+      var box = $('auto'); clear(box);
+      var e = state.view.email, n = e.next;
+      var head = el('div', 'auto-state');
+      head.appendChild(el('span', 'chip ' + (e.automatic ? 'ok' : 'bad'), e.automatic ? 'On' : e.partlyOn ? 'Partly on' : 'Off'));
+      head.appendChild(document.createTextNode(e.automatic ? 'Sending on schedule' : 'Not sending automatically'));
+      box.appendChild(head);
+      if (e.partlyOn) box.appendChild(el('p', 'hint', 'Some of the automatic sends are missing. Turn them on again to fix it.'));
+      var ul = el('ul', 'next-list');
+      var w = el('li'); w.appendChild(el('b', null, 'Weekly: ' + n.weekly.send + ', ' + n.weekly.hours));
+      w.appendChild(el('span', null, 'Covers ' + n.weekly.covers + '. Preview ' + n.weekly.preview + '.')); ul.appendChild(w);
+      var m = el('li'); m.appendChild(el('b', null, 'Monthly: ' + n.monthly.send + ', ' + n.monthly.hours));
+      m.appendChild(el('span', null, 'Covers ' + n.monthly.covers + '. Preview ' + n.monthly.preview + '.')); ul.appendChild(m);
+      box.appendChild(ul);
+      if (e.automatic) {
+        box.appendChild(confirmButton('auto-off', 'secondary', 'Turn automatic emails off', 'Tap again to turn them off', function () {
+          change('apiAdminSetAutoEmails', [false], $('autoStatus'), 'Done', 'Not changed');
+        }));
+      } else {
+        box.appendChild(button('primary', 'Turn automatic emails on', function () { change('apiAdminSetAutoEmails', [true], $('autoStatus'), 'Done', 'Not changed'); }));
+      }
+      if (e.quota != null) box.appendChild(el('p', 'hint small', 'Google lets this account email ' + e.quota + ' more recipients today.'));
+    }
+
+    /* ── attendings ── */
+    function renderAttendings() {
+      var ul = $('attendings'); clear(ul);
+      state.view.attendings.forEach(function (a) {
+        var li = el('li');
+        if (state.editing === a) {
+          var row = el('div', 'add-row'); row.style.borderTop = '0'; row.style.marginTop = '0'; row.style.paddingTop = '0';
+          var r = el('div', 'row'); var input = el('input'); input.type = 'text'; input.value = a; input.maxLength = 40;
+          r.appendChild(input);
+          r.appendChild(button('secondary', 'Save', function () {
+            change('apiAdminChangeAttendings', [{ type: 'edit', key: a, name: input.value }], $('attendingsStatus'), 'Saved', 'Not saved', function () { state.editing = ''; });
+          }));
+          row.appendChild(r);
+          row.appendChild(button('linkbtn', 'Cancel', function () { state.editing = ''; renderAttendings(); }));
+          li.appendChild(row); ul.appendChild(li); setTimeout(function () { input.focus(); }, 0); return;
+        }
+        var line = el('div', 'att-row');
+        line.appendChild(el('b', null, a));
+        line.appendChild(button('secondary small', 'Edit', function () { state.editing = a; renderAttendings(); }));
+        line.appendChild(confirmButton('att-' + a, 'secondary small', 'Remove', 'Tap again', function () {
+          change('apiAdminChangeAttendings', [{ type: 'remove', key: a }], $('attendingsStatus'), 'Removed', 'Not removed');
+        }));
+        li.appendChild(line); ul.appendChild(li);
+      });
+      if (!state.view.attendings.length) ul.appendChild(el('li', 'empty', 'No attendings yet — living donor cases can’t be added until there is one.'));
+    }
+
+    function renderLog() {
+      var ul = $('log'); clear(ul);
+      state.view.log.forEach(function (l) {
+        var li = el('li'); li.appendChild(document.createTextNode(l.what));
+        li.appendChild(el('span', 'when', l.at + ' · ' + l.by)); ul.appendChild(li);
+      });
+      if (!state.view.log.length) ul.appendChild(el('li', 'empty', 'No changes yet.'));
+    }
+
+    /* ── one-off email ── */
+    function renderOneOff() {
+      var o = state.oneOff;
+      document.querySelectorAll('#oneOffKind .tab').forEach(function (b) { b.setAttribute('aria-checked', b.dataset.kind === o.kind ? 'true' : 'false'); });
+      $('oneOffWeekRow').hidden = o.kind !== 'week';
+      $('oneOffMonthRow').hidden = o.kind !== 'month';
+      $('oneOffWeek').value = o.week;
+      var sel = $('oneOffMonth');
+      if (!sel.options.length) {
+        var start = state.view.today.slice(0, 7);
+        for (var i = -1; i <= 12; i++) { var m = addMonths(start, i); var op = el('option', null, monthLabel(m)); op.value = m; sel.appendChild(op); }
+      }
+      sel.value = o.month;
+      var p = o.preview, n = p ? p.recipients.length : 0;
+      $('mailSubject').textContent = p ? 'Subject: ' + p.subject : 'Loading the preview…';
+      $('mailTo').textContent = p ? 'To: ' + (n ? p.recipients.join(', ') : 'nobody — add recipients first') : '';
+      var live = $('sendLive');
+      var armed = state.armed === 'send-live';
+      live.textContent = armed ? 'Tap again to send to ' + n : 'Send to ' + n + ' recipient' + (n === 1 ? '' : 's');
+      live.classList.toggle('armed', armed);
+      live.disabled = !p || !n;
+      $('sendTest').disabled = !p;
+    }
+    function oneOffArgs() { var o = state.oneOff; return [o.kind, o.kind === 'week' ? o.week : o.month, $('oneOffMessage').value]; }
+    function refreshPreview() {
+      var seq = ++state.oneOff.seq;
+      state.oneOff.preview = null; renderOneOff();
+      TimeOffApi.run('apiAdminEmailPreview', oneOffArgs(), function (p) {
+        if (seq !== state.oneOff.seq) return; // a newer preview is on its way
+        state.oneOff.preview = p;
+        $('mailFrame').srcdoc = '<!DOCTYPE html><meta charset="utf-8"><body style="margin:12px;background:#fff">' + p.html + '</body>';
+        renderOneOff();
+      }, function (err) { if (err.code !== 'auth') showStatus($('oneOffStatus'), 'error', 'Couldn’t build the preview', [err.message]); });
+    }
+    function setupOneOff() {
+      document.querySelectorAll('#oneOffKind .tab').forEach(function (b) {
+        b.addEventListener('click', function () { state.oneOff.kind = b.dataset.kind; state.armed = ''; refreshPreview(); });
+      });
+      $('oneOffWeek').addEventListener('change', function (e) { if (e.target.value) { state.oneOff.week = e.target.value; refreshPreview(); } });
+      $('oneOffMonth').addEventListener('change', function (e) { state.oneOff.month = e.target.value; refreshPreview(); });
+      $('oneOffMessage').addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(refreshPreview, 700); });
+      $('sendTest').addEventListener('click', function () { send('test'); });
+      $('sendLive').addEventListener('click', function () {
+        if (state.armed !== 'send-live') { state.armed = 'send-live'; renderOneOff(); return; }
+        state.armed = ''; send('live');
+      });
+      $('addRecipient').addEventListener('click', function () {
+        var t = state.newToggles;
+        change('apiAdminChangeRecipients', [{ type: 'add', email: $('newRecipient').value, weekly: t.weekly, monthly: t.monthly, preview: t.preview }],
+          $('recipientsStatus'), 'Added', 'Not added', function () { $('newRecipient').value = ''; refreshPreview(); });
+      });
+      $('addAttending').addEventListener('click', function () {
+        change('apiAdminChangeAttendings', [{ type: 'add', name: $('newAttending').value }], $('attendingsStatus'), 'Added', 'Not added', function () { $('newAttending').value = ''; });
+      });
+    }
+    function send(mode) {
+      busy(true);
+      TimeOffApi.run('apiAdminSendEmail', oneOffArgs().concat([mode]), function (res) {
+        busy(false); renderOneOff();
+        if (!res.ok) { showStatus($('oneOffStatus'), 'error', 'Not sent', res.errors); return; }
+        showStatus($('oneOffStatus'), 'ok', mode === 'test' ? 'Test sent' : 'Sent', res.lines);
+        if (mode === 'live') loadAll();
+      }, function (err) { busy(false); renderOneOff(); if (err.code !== 'auth') showStatus($('oneOffStatus'), 'error', 'Not sent', [err.message]); });
+    }
+
+    setupOneOff();
+    TimeOffApi.start({
+      need: 'admin',
+      links: [{ label: 'Schedule', href: '../' }, { label: 'Time-off admin', href: 'https://timeoff.usctransplant.life/admin/' }],
+      onReady: function (who) { state.me = who.email; loadAll(); },
+    });
+  })();
+  </script>
+</body>
+</html>
