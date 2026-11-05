@@ -30,14 +30,18 @@
     <div class="col side">
       <section class="card" id="recipientsCard">
         <h2>Who gets the emails</h2>
-        <p class="hint">Weekly: Sundays, for the coming week. Monthly: a week before the 1st. Previews: the day before each, so you can fix the calendar first.</p>
+        <ul class="when-list">
+          <li><b>Weekly:</b> Sundays, for the coming week.</li>
+          <li><b>Monthly:</b> a week before the 1st.</li>
+          <li><b>Previews:</b> the day before each, so you can fix the calendar first.</li>
+        </ul>
         <div class="status" id="recipientsStatus" role="status" aria-live="polite"></div>
         <ul class="plist" id="recipients"></ul>
         <div class="add-row">
-          <label class="label" for="newRecipient">Add an address</label>
-          <input id="newRecipient" type="email" autocomplete="off" placeholder="name@gmail.com">
+          <label class="label" for="newRecipient">Add someone from the portal</label>
+          <select id="newRecipient"></select>
           <div class="toggles" id="newRecipientToggles"></div>
-          <button class="secondary" id="addRecipient" type="button">Add address</button>
+          <button class="secondary" id="addRecipient" type="button">Add</button>
         </div>
       </section>
 
@@ -56,7 +60,6 @@
     <div class="col wide">
       <section class="card" id="assignCard">
         <h2>Monthly assignments</h2>
-        <p class="hint">All four services must be covered, and each fellow can be on only one service a month (cross-cover is separate). Only one fellow can be on a service, unless the other is an HPB fellow (ticked in the portal). Saving updates the events on the service calendars.</p>
         <ul class="months" id="months"><li class="loading">Loading…</li></ul>
         <details class="past" id="pastMonths" hidden><summary id="pastSummary">Earlier months</summary><ul class="months" id="monthsPast"></ul></details>
       </section>
@@ -150,6 +153,7 @@
       return a.names.slice().sort().join('|') === b.names.slice().sort().join('|');
     }
     function isHpb(n) { return state.view.year.hpbFellows.indexOf(n) !== -1; }
+    function shareable(svc) { return (state.view.year.shareable || []).indexOf(svc) !== -1; }
     /** Who can be the second fellow on a service with first: an HPB fellow if first isn't one, otherwise anyone who isn't. */
     function partnersFor(first) {
       return state.view.year.fellows.filter(function (n) { return n !== first && isHpb(n) !== isHpb(first); });
@@ -190,7 +194,7 @@
         var head = el('div', 'month-head');
         head.appendChild(el('b', null, m.label + (m.current ? ' (this month)' : '')));
         li.appendChild(head);
-        var draft = draftOf(m), changed = false, counts = {}, badPairs = [];
+        var draft = draftOf(m), changed = false, counts = {}, errors = [];
         var grid = el('div', 'month-grid');
         y.services.forEach(function (svc) {
           var d = draft[svc], names = d.names;
@@ -205,17 +209,20 @@
           var isChanged = !sameChoice(d, currentOf(m, svc)) || (m.services[svc].irregular && names.length > 0 && !m.services[svc].shared);
           if (isChanged) { sel.classList.add('changed'); changed = true; }
           cell.appendChild(sel);
-          var partners = names[0] ? partnersFor(names[0]) : [];
+          var partners = names[0] && shareable(svc) ? partnersFor(names[0]) : [];
           if (names.length > 1 || d.second) {
             var choices = names[1] && partners.indexOf(names[1]) === -1 ? partners.concat([names[1]]) : partners;
-            var sel2 = fellowSelect(svc + ', second fellow, ' + m.label, names[1] || '', short, '— just one', function (v) { pick(names[0], v, false); }, choices);
+            var sel2 = fellowSelect(svc + ', second fellow, ' + m.label, names[1] || '', short, 'No second fellow', function (v) { pick(names[0], v, false); }, choices);
             if (isChanged) sel2.classList.add('changed');
             cell.appendChild(sel2);
           } else if (names.length === 1 && partners.length) {
             cell.appendChild(button('linkbtn add-second', isHpb(names[0]) ? '+ Second fellow' : '+ HPB fellow', function () { setDraft(m, svc, { names: names.slice(), second: true }); }));
           }
           names.forEach(function (n) { counts[n] = (counts[n] || 0) + 1; });
-          if (names.length > 1 && isHpb(names[0]) === isHpb(names[1])) badPairs.push(svc + ': only one fellow can be on a service, unless the other is an HPB fellow.');
+          // The rules, each with a message that says exactly what is wrong.
+          if (names.length > 1 && !shareable(svc)) errors.push(svc + ' can only have one fellow. Only ' + state.view.year.shareable.join(' and ') + ' can have two.');
+          else if (names.length > 1 && isHpb(names[0]) && isHpb(names[1])) errors.push(names.join(' and ') + ' can’t share ' + svc + ': they are both HPB fellows. Two fellows can share a service only when exactly one is an HPB fellow.');
+          else if (names.length > 1 && !isHpb(names[0]) && !isHpb(names[1])) errors.push(names.join(' and ') + ' can’t share ' + svc + ': neither is an HPB fellow. Two fellows can share ' + svc + ' only when one of them is an HPB fellow.');
           grid.appendChild(cell);
         });
         li.appendChild(grid);
@@ -228,12 +235,15 @@
         });
         var missing = y.services.filter(function (svc) { return !draft[svc].names.length; });
         var dups = Object.keys(counts).filter(function (n) { return counts[n] > 1; });
-        dups.forEach(function (n) { notes.push(n + ' is chosen for more than one service.'); });
-        badPairs.forEach(function (n) { notes.push(n); });
-        if (missing.length && changed) notes.push('Choose someone for ' + missing.join(', ') + '.');
-        else if (missing.length === y.services.length) notes.push('Nobody assigned yet.');
-        else if (missing.length) notes.push(missing.join(', ') + ' ' + (missing.length === 1 ? 'has' : 'have') + ' no fellow assigned.');
-        notes.forEach(function (n) { li.appendChild(el('div', 'month-note' + (/repeating|more than one|Choose|no fellow|Nobody|only one fellow/.test(n) ? '' : ' muted'), n)); });
+        dups.forEach(function (n) {
+          var where = y.services.filter(function (svc) { return draft[svc].names.indexOf(n) !== -1; });
+          errors.push(n + ' is on both ' + where.join(' and ') + ' in ' + m.label + '. Each fellow can be on only one service a month.');
+        });
+        if (missing.length === y.services.length && !changed) notes.push('Nobody assigned yet.');
+        else if (missing.length) errors.push(missing.join(' and ') + (missing.length === 1 ? ' has' : ' have') + ' no fellow in ' + m.label + '. Every service needs a fellow each month.');
+        // Problems in red (they stop a save); other notes in grey.
+        errors.forEach(function (n) { li.appendChild(el('div', 'month-note', n)); });
+        notes.forEach(function (n) { li.appendChild(el('div', 'month-note muted', n)); });
         var any = y.services.some(function (svc) { return m.services[svc].names.length; });
         if (any) head.appendChild(confirmButton('clear-' + m.month, 'linkbtn', 'Remove month', 'Tap again to remove all four', function () {
           change('apiAdminClearAssignments', [m.month], monthStatus(m.month), 'Removed', 'Not removed', function () { delete state.drafts[m.month]; });
@@ -243,7 +253,7 @@
           var save = button('primary small', 'Save ' + m.label.split(' ')[0], function () {
             change('apiAdminSetAssignments', [m.month, choiceToSave(m)], monthStatus(m.month), 'Saved', 'Not saved', function () { delete state.drafts[m.month]; });
           });
-          save.disabled = missing.length > 0 || dups.length > 0 || unconfirmed.length > 0;
+          save.disabled = errors.length > 0;
           actions.appendChild(save);
           actions.appendChild(button('secondary small', 'Undo', function () { delete state.drafts[m.month]; renderMonths(); }));
           li.appendChild(actions);
@@ -261,13 +271,18 @@
         box.appendChild(t);
       });
     }
+    function memberOf(email) { return (state.view.email.members || []).filter(function (p) { return p.email.toLowerCase() === String(email).toLowerCase(); })[0]; }
     function renderRecipients() {
       var ul = $('recipients'); clear(ul);
       var list = state.view.email.recipients, all = state.view.email.allFellows;
       list.forEach(function (r) {
         var li = el('li');
         // "All fellows" is everyone with the fellow role on the call schedule (from the portal), whoever they are that day.
-        li.appendChild(el('span', 'addr', r.email === all.key ? 'All fellows (' + (all.names.join(', ') || 'none yet') + ')' : r.email));
+        var who = memberOf(r.email);
+        var addr = el('span', 'addr', r.email === all.key ? 'All fellows' : who ? who.name : r.email);
+        if (r.email === all.key) addr.title = all.names.join(', ') || 'No fellows yet';
+        else if (who) { addr.appendChild(el('br')); addr.appendChild(el('small', 'addr-email', r.email)); }
+        li.appendChild(addr);
         var row = el('div', 'toggles');
         toggles(row, r, function (k, v) {
           var next = { type: 'update', key: r.email, email: r.email, weekly: r.weekly, monthly: r.monthly, preview: r.preview };
@@ -281,14 +296,15 @@
         ul.appendChild(li);
       });
       if (!list.length) ul.appendChild(el('li', 'empty', 'Nobody gets the emails yet.'));
-      if (!list.some(function (r) { return r.email === all.key; })) {
-        var li2 = el('li');
-        li2.appendChild(UI.button('secondary small', 'Add all fellows', function () {
-          change('apiAdminChangeRecipients', [{ type: 'add', email: all.key, weekly: true, monthly: true, preview: false }], $('recipientsStatus'), 'Added', 'Not added');
-        }));
-        li2.appendChild(el('span', 'hint small', ' Everyone with the fellow role on the call schedule, kept up to date from the portal.'));
-        ul.appendChild(li2);
-      }
+      // Add from the portal's member list ("All fellows" first, if it isn't on the list yet).
+      var sel = $('newRecipient'), keep = sel.value; clear(sel);
+      var on = function (e) { return list.some(function (r) { return r.email.toLowerCase() === e.toLowerCase(); }); };
+      var pickOne = el('option', null, 'Choose…'); pickOne.value = ''; sel.appendChild(pickOne);
+      if (!on(all.key)) { var o = el('option', null, 'All fellows'); o.value = all.key; sel.appendChild(o); }
+      (state.view.email.members || []).filter(function (p) { return !on(p.email); }).forEach(function (p) {
+        var op = el('option', null, p.name + ' (' + p.email + ')'); op.value = p.email; sel.appendChild(op);
+      });
+      sel.value = keep && Array.prototype.some.call(sel.options, function (x) { return x.value === keep; }) ? keep : '';
       var nt = $('newRecipientToggles'); clear(nt);
       toggles(nt, state.newToggles, function (k, v) { state.newToggles[k] = v; renderRecipients(); });
     }
@@ -315,7 +331,6 @@
       } else {
         box.appendChild(button('primary', 'Turn automatic emails on', function () { change('apiAdminSetAutoEmails', [true], $('autoStatus'), 'Done', 'Not changed'); }));
       }
-      if (e.quota != null) box.appendChild(el('p', 'hint small', 'Google lets this account email ' + e.quota + ' more recipients today.'));
     }
 
     function renderLog() { UI.fillLog($('log'), state.view.log); }
@@ -369,6 +384,7 @@
       });
       $('addRecipient').addEventListener('click', function () {
         var t = state.newToggles;
+        if (!$('newRecipient').value) { showStatus($('recipientsStatus'), 'error', 'Not added', ['Choose someone from the list first.']); return; }
         change('apiAdminChangeRecipients', [{ type: 'add', email: $('newRecipient').value, weekly: t.weekly, monthly: t.monthly, preview: t.preview }],
           $('recipientsStatus'), 'Added', 'Not added', function () { $('newRecipient').value = ''; refreshPreview(); });
       });
