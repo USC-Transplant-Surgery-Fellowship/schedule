@@ -7,7 +7,7 @@ The call-schedule site for the USC Transplant Surgery Fellowship: **https://sche
   year's monthly assignments and each fellow's time off and cross-cover. Fellows can filter it to just themselves.
 - **Fellows and admins** can also **add or remove living donor cases** (fellows: from today on).
 - **Admins** (`/admin/`) change the monthly service assignments (one fellow per service, unless the other is an HPB
-  fellow, ticked in the portal; while either of them is around, that service needs no cross-cover), who gets the emails (weekly,
+  fellow, ticked in the portal; the HPB fellow doesn't count as cross-cover for the other fellow), who gets the emails (weekly,
   monthly, previews), turn automatic emails on or off, and send one-off emails with a message at the top.
 
 People, roles and the attendings offered for living donor cases are managed in the portal, https://portal.usctransplant.life.
