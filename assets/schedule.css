@@ -1,0 +1,150 @@
+/*
+ * Schedule site only. The shared look (pager header, colors, sheets, keys, buttons, light/dark) is in styles.css,
+ * which is the same file as on the time-off site — change it in both repositories together.
+ */
+
+/* ── layout: phones keep one column in reading order; computers get two columns (styles.css: main.split) ── */
+@media (max-width: 959px) {
+  main.sched:not([hidden]) { display: flex; flex-direction: column; }
+  main.sched > .col { display: contents; }
+  #periodCard { order: 1; } #resultCard { order: 2; } #ldCard { order: 3; } #yearCard { order: 4; }
+  #assignCard { order: 1; } #oneOffCard { order: 2; } #recipientsCard { order: 3; } #autoCard { order: 4; }
+  #attendingsCard { order: 5; } #logCard { order: 6; }
+}
+
+/* ── key groups (choose one) ── */
+.keys { display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
+.keys .tab { font-size: 15px; }
+.tab[aria-checked="true"] {
+  color: #fff; background: var(--cardinal); border-color: var(--cardinal-deep);
+  box-shadow: 0 2px 0 var(--cardinal-deep), inset 0 -3px 0 var(--gold);
+}
+.tab small { display: block; font-size: 12px; font-weight: 600; opacity: .85; }
+.pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pick .label { margin-top: 2px; }
+.field { margin-bottom: 12px; }
+.field:last-child { margin-bottom: 0; }
+.only-me { margin: 14px 0 0; }
+
+/* ── the period ── */
+.period-title {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px dotted var(--line-strong);
+}
+.period-title h2 { flex: 1 1 auto; margin: 0; padding: 0; border: 0; }
+.stepper { display: flex; gap: 6px; flex: 0 0 auto; }
+.stepper .secondary { min-height: 38px; padding: 6px 12px; }
+.sec { margin-top: 18px; }
+.sec:first-of-type { margin-top: 4px; }
+.sec h3 { font-size: 16px; font-weight: 800; margin: 0 0 6px; }
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows > li { padding: 9px 0; border-top: 1px solid var(--line); }
+.rows > li:first-child { border-top: 0; padding-top: 2px; }
+.rows .empty { color: var(--muted); padding: 2px 0; border: 0; }
+.svc { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 2px 12px; align-items: baseline; }
+.svc-name { font-weight: 800; }
+.svc-who { overflow-wrap: anywhere; }
+.svc-who .range { display: block; }
+.svc-who .dates, .when { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.when { display: block; }
+.mine { background: var(--gold-soft); box-shadow: -10px 0 0 var(--gold-soft), 10px 0 0 var(--gold-soft); border-radius: 2px; }
+.mine-mark { font-size: 12px; font-weight: 800; color: var(--gold-ink); background: var(--gold); padding: 1px 7px; border-radius: 3px; margin-left: 6px; vertical-align: 1px; }
+.ld { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: start; }
+.ld-title { font-weight: 700; overflow-wrap: anywhere; }
+.ld-meta { color: var(--muted); font-size: 14px; }
+.chip.svc-chip { margin-left: 0; margin-right: 6px; background: var(--sheet-sunk); color: var(--ink); border: 1px solid var(--line); }
+.ld .secondary.small { white-space: nowrap; }
+.filter-note { font-size: 14px; color: var(--muted); margin: -4px 0 8px; }
+
+/* ── living donor form ── */
+.ld-preview {
+  font-size: 14px; background: var(--sheet-sunk); border: 1px dashed var(--line-strong); border-radius: 8px;
+  padding: 10px 12px; margin: 4px 0 12px; overflow-wrap: anywhere;
+}
+.ld-preview b { display: block; font-size: 15px; }
+.hint-inline { font-weight: 400; color: var(--muted); }
+
+/* ── year of assignments ── */
+.year-wrap { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
+.year { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+.year th { font-size: 13px; font-weight: 800; color: var(--muted); text-align: left; padding: 0 6px 6px; white-space: nowrap; }
+.year td { padding: 7px 6px; border-top: 1px solid var(--line); white-space: nowrap; }
+.year td:first-child, .year th:first-child { padding-left: 0; }
+.year .me { background: var(--gold-soft); }
+.year th.me { color: var(--ink); border-radius: 4px 4px 0 0; }
+.year tr.now td:first-child { font-weight: 800; color: var(--accent); }
+.year tr.now td { border-top-color: var(--accent); }
+.year .gap { color: var(--err); font-weight: 700; }
+
+/* ── admin: assignment editor ── */
+.months { list-style: none; margin: 0; padding: 0; }
+.month { padding: 12px 0; border-top: 1px solid var(--line); }
+.month:first-child { border-top: 0; padding-top: 2px; }
+.month-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.month-head b { font-size: 16px; }
+.month.now .month-head b { color: var(--accent); }
+.month-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.month-grid label { font-size: 13px; font-weight: 700; color: var(--muted); }
+.month-grid select { min-height: 42px; padding: 8px 30px 8px 10px; margin-top: 3px; }
+.month-grid select.changed { border-color: var(--accent); background-color: var(--cardinal-soft); }
+.month-head .linkbtn { color: var(--accent); font-size: 14px; font-weight: 700; text-decoration: none; min-height: 32px; }
+.month-head .linkbtn.armed { color: var(--err); text-decoration: underline; }
+.month-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.past { margin-top: 10px; border-top: 2px dotted var(--line-strong); padding-top: 10px; }
+.past summary { cursor: pointer; font-weight: 700; color: var(--accent); padding: 4px 0; }
+.past[open] summary { margin-bottom: 6px; }
+.att-row { display: flex; align-items: center; gap: 8px; }
+.att-row b { flex: 1 1 auto; overflow-wrap: anywhere; }
+.month-actions .primary.small { width: auto; margin: 0; padding: 9px 16px 11px; }
+.month-note { font-size: 13px; color: var(--err); margin-top: 6px; }
+.month-note.muted { color: var(--muted); }
+.month .status { margin-top: 8px; }
+@media (max-width: 599px) { .month-grid { grid-template-columns: 1fr 1fr; } }
+
+/* ── admin: recipients, attendings, log ── */
+.plist { list-style: none; margin: 0; padding: 0; }
+.plist > li { padding: 10px 0; border-top: 1px solid var(--line); }
+.plist > li:first-child { border-top: 0; padding-top: 2px; }
+.plist .addr { font-weight: 700; overflow-wrap: anywhere; display: block; margin-bottom: 6px; }
+.toggles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.toggle {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px;
+  font: inherit; font-size: 14px; font-weight: 700; color: var(--muted); cursor: pointer;
+  background: var(--sheet); border: 1.5px solid var(--line-strong); border-radius: 999px;
+}
+.toggle[aria-pressed="true"] { color: var(--gold-ink); background: var(--gold); border-color: var(--gold-edge); }
+.toggle[aria-pressed="true"]::before { content: '✓'; }
+.toggles .secondary.small { margin-left: auto; }
+.add-row { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 2px dotted var(--line-strong); }
+.add-row .row { display: flex; gap: 8px; }
+.add-row .row input { flex: 1 1 auto; min-width: 0; }
+.add-row .row .secondary { flex: 0 0 auto; }
+.auto-state { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-weight: 800; font-size: 17px; }
+.auto-state .chip { margin-left: 0; font-size: 13px; }
+.next-list { list-style: none; margin: 0 0 12px; padding: 0; font-size: 15px; }
+.next-list li { padding: 6px 0; border-top: 1px solid var(--line); }
+.next-list li:first-child { border-top: 0; }
+.next-list span { display: block; color: var(--muted); font-size: 14px; }
+.log { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+.log li { padding: 7px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.log li:first-child { border-top: 0; padding-top: 0; }
+.log .when { font-size: 13px; }
+
+/* ── admin: one-off email ── */
+textarea {
+  width: 100%; font: inherit; font-size: 16px; color: var(--ink); background: var(--sheet);
+  border: 1.5px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; min-height: 96px; resize: vertical;
+}
+.mail {
+  border: 1.5px solid var(--line-strong); border-radius: 8px; overflow: hidden; margin: 6px 0 12px; background: #fff;
+}
+.mail-head { background: var(--sheet-sunk); border-bottom: 1px solid var(--line); padding: 9px 12px; font-size: 14px; overflow-wrap: anywhere; }
+.mail-head b { color: var(--ink); }
+.mail-head div + div { margin-top: 2px; color: var(--muted); }
+.mail iframe { display: block; width: 100%; height: 520px; border: 0; background: #fff; }
+.send-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.send-row .primary { margin: 0; padding: 12px 10px 15px; font-size: 16px; }
+@media (max-width: 380px) { .send-row { grid-template-columns: 1fr; } }
+
+/* Anything marked hidden stays hidden, whatever its display style. */
+[hidden] { display: none !important; }
