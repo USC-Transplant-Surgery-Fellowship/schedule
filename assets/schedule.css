@@ -9,7 +9,7 @@
   main.sched > .col { display: contents; }
   #periodCard { order: 1; } #resultCard { order: 2; } #ldCard { order: 3; } #upcomingCard { order: 4; } #yearCard { order: 5; } #timeOffCard { order: 6; }
   #assignCard { order: 1; } #oneOffCard { order: 2; } #recipientsCard { order: 3; } #autoCard { order: 4; }
-  #peopleCard { order: 5; } #logCard { order: 6; }
+  #logCard { order: 5; }
 }
 
 /* ── key groups (choose one; .keys is in styles.css) ── */
@@ -17,6 +17,7 @@
 #upcoming .sec h3 { color: var(--accent); }
 #toFellows .tab { padding: 8px 4px; min-height: 40px; font-size: 14px; }
 #toBody .stats { margin-bottom: 4px; }
+#toBody .stats-title { font-size: 16px; font-weight: 800; margin: 4px 0 6px; }
 .rows > li.past { opacity: .62; }
 .pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .pick .label { margin-top: 2px; }
@@ -86,8 +87,6 @@
 .svc-label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); }
 .month-grid select { min-height: 42px; padding: 8px 30px 8px 10px; margin-top: 3px; }
 .month-grid .add-second { font-size: 13px; font-weight: 700; color: var(--accent); text-decoration: none; min-height: 32px; }
-.month-shares { margin-top: 10px; }
-.month-shares .override-toggle { margin-bottom: 8px; }
 .month-grid select.changed { border-color: var(--accent); background-color: var(--cardinal-soft); }
 .month-head .linkbtn { color: var(--accent); font-size: 14px; font-weight: 700; text-decoration: none; min-height: 32px; }
 .month-head .linkbtn.armed { color: var(--err); text-decoration: underline; }
