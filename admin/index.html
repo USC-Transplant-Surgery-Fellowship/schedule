@@ -208,6 +208,7 @@
         var notes = [];
         y.services.forEach(function (svc) {
           var s = m.services[svc];
+          if (s.others && s.others.length) notes.push('Also on ' + svc + ': ' + s.others.join(', ') + ' (not a fellow; kept when you save).');
           if (s.recurring) notes.push(svc + ' is a repeating event — change it in Google Calendar.');
           else if (s.irregular && s.names.length) notes.push(svc + ' on the calendar now: ' + s.detail + '. Saving replaces it with one person for the whole month.');
         });
@@ -216,8 +217,8 @@
         dups.forEach(function (n) { notes.push(n + ' is chosen for more than one service.'); });
         if (missing.length && changed) notes.push('Choose someone for ' + missing.join(', ') + '.');
         else if (missing.length === y.services.length) notes.push('Nobody assigned yet.');
-        else if (missing.length) notes.push(missing.join(', ') + ' ' + (missing.length === 1 ? 'has' : 'have') + ' nobody assigned.');
-        notes.forEach(function (n) { li.appendChild(el('div', 'month-note' + (/repeating|more than one|Choose|nobody|Nobody/.test(n) ? '' : ' muted'), n)); });
+        else if (missing.length) notes.push(missing.join(', ') + ' ' + (missing.length === 1 ? 'has' : 'have') + ' no fellow assigned.');
+        notes.forEach(function (n) { li.appendChild(el('div', 'month-note' + (/repeating|more than one|Choose|no fellow|Nobody/.test(n) ? '' : ' muted'), n)); });
         var any = y.services.some(function (svc) { return m.services[svc].names.length; });
         if (any) head.appendChild(confirmButton('clear-' + m.month, 'linkbtn', 'Remove month', 'Tap again to remove all four', function () {
           change('apiAdminClearAssignments', [m.month], monthStatus(m.month), 'Removed', 'Not removed', function () { delete state.drafts[m.month]; });
