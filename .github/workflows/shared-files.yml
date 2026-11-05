@@ -1,5 +1,5 @@
-# Warns when the files shared with the time-off site (styles.css, api.js, fonts) differ from that site's copies.
-# Both sites must look and sign in the same way, so change these files in both repositories together.
+# Warns when the files shared by the three sites (styles.css, ui.js, api.js, fonts) differ from the time-off site's copies.
+# The sites must look and sign in the same way, so change these files in all three repositories together.
 name: Shared files
 
 on:
@@ -19,7 +19,7 @@ jobs:
       - name: Compare shared files with the time-off site
         run: |
           status=0
-          for f in assets/styles.css assets/api.js assets/fonts/doto.woff2 assets/fonts/atkinson-hyperlegible-next.woff2; do
+          for f in assets/styles.css assets/ui.js assets/api.js assets/fonts/doto.woff2 assets/fonts/atkinson-hyperlegible-next.woff2; do
             if ! cmp -s "$f" "other-site/$f"; then
               echo "::warning file=$f::$f differs from the time-off site's copy. Make the same change in both repositories."
               status=1

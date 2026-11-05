@@ -2,11 +2,15 @@
 
 The call-schedule site for the USC Transplant Surgery Fellowship: **https://schedule.usctransplant.life**
 
-- **Everyone** (fellows on the approved list who are in the Google Group, and admins) can see any week or month —
-  the same sections as the weekly/monthly emails: services, time off, cross-cover and living donor cases — filter it to
-  just themselves, see the year's monthly assignments, and **add or remove living donor cases**.
-- **Admins** (`/admin/`) change the monthly service assignments, the attendings list, who gets the emails (weekly,
+- **Everyone with a role on the call schedule** (set in the portal: viewer, fellow or admin) can see any week or month —
+  the same sections as the weekly/monthly emails: services, time off, cross-cover and living donor cases — see the
+  year's monthly assignments and each fellow's time off and cross-cover. Fellows can filter it to just themselves.
+- **Fellows and admins** can also **add or remove living donor cases** (fellows: from today on).
+- **Admins** (`/admin/`) change the monthly service assignments (two fellows can share a service when the admin ticks
+  that they do; while either of them is around, that service needs no cross-cover), who gets the emails (weekly,
   monthly, previews), turn automatic emails on or off, and send one-off emails with a message at the top.
+
+People, roles and the attendings offered for living donor cases are managed in the portal, https://portal.usctransplant.life.
 
 ## How it fits together
 
@@ -19,23 +23,22 @@ Browser ──► this repository (GitHub Pages: the pages people see)
               as the fellowship account
 ```
 
-The same server runs the time-off site (https://timeoff.usctransplant.life). Both sites share the people list
-(People & access on the time-off admin page) and the sign-in. This repository holds only the pages — no personal data.
+The same server runs the time-off site (https://timeoff.usctransplant.life) and the portal (https://portal.usctransplant.life).
+The three sites share the member list (the portal) and one sign-in. This repository holds only the pages — no personal data.
 
 | File | What it is |
 |---|---|
 | `index.html` | Schedule page (everyone) |
 | `admin/index.html` | Admin page |
 | `assets/schedule.css` | Styles used only by this site |
-| `assets/site.js` | Which server to use. Empty = the live server named in `assets/api.js` |
-| `assets/styles.css`, `assets/api.js`, `assets/fonts/` | **Shared with the time-off site** — keep identical in both repositories (a GitHub check compares them) |
+| `assets/styles.css`, `assets/ui.js`, `assets/api.js`, `assets/fonts/` | **Shared with the time-off site and the portal** — keep identical in all three repositories (a GitHub check compares them) |
 | `CNAME` | The custom domain for GitHub Pages |
 
 ## Making changes
 
 - Page changes: edit here and commit to `main`; GitHub Pages publishes within a minute or two.
-- Shared files (`styles.css`, `api.js`, fonts): make the same change in the `timeoff` repository. The **Shared files**
-  check on the Actions tab warns when the two copies differ.
+- Shared files (`styles.css`, `ui.js`, `api.js`, fonts): make the same change in the `timeoff` and `portal` repositories.
+  The **Shared files** check on the Actions tab warns when the copies differ.
 - Rules (assignment rules, living donor case format, email schedule and wording) are in the private `timeoff-backend`
   repository (`schedule*.gs`), deployed by GitHub Actions.
 

@@ -10,8 +10,8 @@
   <link rel="preload" href="assets/fonts/atkinson-hyperlegible-next.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="assets/styles.css">
   <link rel="stylesheet" href="assets/schedule.css">
-  <script src="assets/site.js"></script>
   <script src="https://accounts.google.com/gsi/client" async></script>
+  <script src="assets/ui.js"></script>
   <script src="assets/api.js"></script>
 </head>
 <body>
@@ -107,31 +107,9 @@
   (function () {
     var state = { kind: 'week', key: '', data: null, onlyMe: false, me: null, year: null, armed: '', ld: { organ: '', kind: '', location: '', slot: '' },
       upcoming: null, upcomingCal: '', timeOff: null, toFellow: '' };
-    var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-    function $(id) { return document.getElementById(id); }
-    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-    function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
-    function busy(on) { document.body.classList[on ? 'add' : 'remove']('busy'); }
-    function showStatus(box, kind, title, lines) {
-      clear(box);
-      if (!kind) return;
-      var b = el('div', 'box ' + kind);
-      if (title) b.appendChild(el('b', null, title));
-      if (lines && lines.length) { var ul = el('ul'); lines.forEach(function (l) { ul.appendChild(el('li', null, l)); }); b.appendChild(ul); }
-      box.appendChild(b);
-    }
+    var $ = UI.$, el = UI.el, clear = UI.clear, busy = UI.busy, showStatus = UI.showStatus, plural = UI.plural;
+    var addDays = UI.addDays, addMonths = UI.addMonths, dayLabel = UI.dayLabel, span = UI.spanLabel, monthLabel = UI.monthLabel;
     function failTo(box, title) { return function (err) { busy(false); if (err.code !== 'auth') showStatus(box, 'error', title, [err.message]); }; }
-
-    /* ── dates (keys are 'yyyy-MM-dd') ── */
-    function ymd(k) { return k.split('-').map(Number); }
-    function addDays(k, n) { var p = ymd(k); return new Date(Date.UTC(p[0], p[1] - 1, p[2] + n)).toISOString().slice(0, 10); }
-    function dayLabel(k) { var p = ymd(k); return DOW[new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay()] + ' ' + p[1] + '/' + p[2]; }
-    function span(a, b) { return a === b ? dayLabel(a) : dayLabel(a) + ' – ' + dayLabel(b); }
-    function monthLabel(m) { var p = ymd(m + '-01'); return MONTHS[p[1] - 1] + ' ' + p[0]; }
-    function addMonths(m, n) { var p = ymd(m + '-01'); var d = new Date(Date.UTC(p[0], p[1] - 1 + n, 1)); return d.toISOString().slice(0, 7); }
-    function todayKey() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
 
     /* ── choosing the period ── */
     function fromUrl() {
@@ -152,7 +130,7 @@
       }, failTo($('resultStatus'), 'Couldn’t load the schedule'));
     }
     function setupPicks() {
-      var sel = $('monthPick'), now = todayKey().slice(0, 7);
+      var sel = $('monthPick'), now = UI.todayKey().slice(0, 7);
       clear(sel);
       var pick = el('option', null, 'Choose…'); pick.value = ''; pick.disabled = true; sel.appendChild(pick);
       for (var i = -12; i <= 12; i++) { var m = addMonths(now, i); var o = el('option', null, monthLabel(m)); o.value = m; sel.appendChild(o); }
@@ -186,6 +164,7 @@
       $('weekPick').value = d.kind === 'week' ? d.key : '';
       $('monthPick').value = d.kind === 'month' ? d.key : '';
       $('onlyMeRow').hidden = !me;
+      $('ldCard').hidden = !state.me.canEdit; // viewers can't add living donor cases
 
       var body = $('periodBody'); clear(body);
       if (only) body.appendChild(el('p', 'filter-note', 'Showing only what involves ' + me + '.'));
@@ -202,9 +181,8 @@
         li.appendChild(el('span', 'svc-name', c.label));
         var who = el('span', 'svc-who');
         ranges.forEach(function (r) {
-          // Fellows by their name on the list (a calendar title may use another spelling, e.g. "Ellie").
-          var names = r.display;
-          var line = el('span', 'range' + (r.people.indexOf(me) !== -1 && me ? ' mine' : ''), names || 'Not on calendar');
+          // Names as on the member list (a calendar title may use another spelling, e.g. "Ellie"); two fellows can share a service.
+          var line = el('span', 'range' + (r.people.indexOf(me) !== -1 && me ? ' mine' : ''), r.names.join(' & ') || 'Not on calendar');
           if (c.ranges.length > 1) { line.appendChild(document.createTextNode(' ')); line.appendChild(el('span', 'dates', span(r.start, r.end))); }
           who.appendChild(line);
         });
@@ -295,7 +273,7 @@
       var cal = state.upcomingCal;
       document.querySelectorAll('#upcomingFilter .tab').forEach(function (b) { b.setAttribute('aria-checked', b.dataset.cal === cal ? 'true' : 'false'); });
       var cases = u.cases.filter(function (l) { return !cal || l.service === cal; });
-      $('upcomingHint').textContent = cases.length + ' case' + (cases.length === 1 ? '' : 's') + (cal ? ' on the ' + cal + ' calendar' : '') + ' from today through ' + u.through + '.';
+      $('upcomingHint').textContent = plural(cases.length, 'case') + (cal ? ' on the ' + cal + ' calendar' : '') + ' from today through ' + u.through + '.';
       var box = $('upcoming'); clear(box);
       if (!cases.length) { box.appendChild(el('p', 'empty', 'No upcoming cases.')); return; }
       var month = '', ul = null;
@@ -325,11 +303,7 @@
       });
       var f = t.fellows.filter(function (x) { return x.name === state.toFellow; })[0];
       var box = $('toBody'); clear(box); if (!f) return;
-      var stats = el('div', 'stats');
-      [['used', f.tally.used, 'Used'], ['planned', f.tally.planned, 'Planned'], ['remaining', f.tally.remaining, 'Left of ' + f.tally.limit]].forEach(function (x) {
-        var st = el('div', 'stat ' + x[0]); st.appendChild(el('b', null, String(x[1]))); st.appendChild(el('span', null, x[2])); stats.appendChild(st);
-      });
-      box.appendChild(stats);
+      box.appendChild(UI.tallyStats(f.tally));
       var covered = function (list) {
         return list.length ? 'Covered by ' + list.map(function (c) { return c.name + ' (' + c.service + (c.partial ? ', ' + c.label : '') + ')'; }).join(', ')
                            : 'No cross-cover on the calendar';
@@ -345,7 +319,7 @@
       var off = section(box, 'Vacation and other time off');
       f.timeOff.forEach(function (o) {
         var li = el('li', o.past ? 'past' : ''); li.appendChild(el('b', null, o.label));
-        li.appendChild(document.createTextNode(' — ' + o.reason + (o.weekdays ? ' (' + o.weekdays + ' weekday' + (o.weekdays === 1 ? '' : 's') + ')' : '')));
+        li.appendChild(document.createTextNode(' — ' + o.reason + (o.countedDays ? ' (' + plural(o.countedDays, 'day') + ' counted)' : '')));
         li.appendChild(el('span', 'when', covered(o.coveredBy) + (o.past ? ' · past' : '')));
         off.appendChild(li);
       });
@@ -372,18 +346,18 @@
       var me = state.me.name, t = $('year'); clear(t);
       var first = y.months[0], last = y.months[y.months.length - 1];
       $('yearTitle').textContent = 'Monthly assignments, ' + first.label.slice(0, 3) + ' ' + first.month.slice(0, 4) + ' – ' + last.label.slice(0, 3) + ' ' + last.month.slice(0, 4);
-      var firstNames = y.fellows.map(function (n) { return n.split(' ')[0]; });
-      var short = y.fellows.map(function (n, i) { return firstNames.filter(function (f) { return f === firstNames[i]; }).length > 1 ? n : firstNames[i]; });
+      var short = UI.shortNames(y.fellows);
       var thead = el('thead'), hr = el('tr');
       hr.appendChild(el('th', null, 'Month'));
-      y.fellows.forEach(function (n, i) { hr.appendChild(el('th', n === me ? 'me' : '', short[i])); });
+      y.fellows.forEach(function (n) { var th = el('th', n === me ? 'me' : '', short[n]); th.title = n; hr.appendChild(th); });
       thead.appendChild(hr); t.appendChild(thead);
       var tb = el('tbody');
       y.months.forEach(function (m) {
         var tr = el('tr', m.current ? 'now' : '');
         tr.appendChild(el('td', null, m.label.slice(0, 3) + ' ' + m.month.slice(0, 4)));
         y.fellows.forEach(function (n) {
-          var list = m.byFellow[n] || [];
+          // A service two fellows share that month is marked "(shared)".
+          var list = (m.byFellow[n] || []).map(function (svc) { return svc + (m.services[svc] && m.services[svc].shared ? ' (shared)' : ''); });
           tr.appendChild(el('td', n === me ? 'me' : '', list.length ? list.join(' / ') : '—'));
         });
         tb.appendChild(tr);
@@ -449,8 +423,7 @@
 
     setupPicks();
     TimeOffApi.start({
-      need: 'member',
-      links: [{ label: 'Time off', href: 'https://timeoff.usctransplant.life/' }, { label: 'Admin', href: 'admin/', adminOnly: true }],
+      app: 'schedule', need: 'viewer', adminUrl: 'admin/',
       onReady: function () { var u = fromUrl(); load(u.kind, u.key); loadYear(); loadUpcoming(); loadTimeOff(); },
     });
   })();

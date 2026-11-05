@@ -1,6 +1,6 @@
 /*
  * Schedule site only. The shared look (pager header, colors, sheets, keys, buttons, light/dark) is in styles.css,
- * which is the same file as on the time-off site — change it in both repositories together.
+ * which is the same file on all three sites (time off, call schedule, portal) — change it in all of them together.
  */
 
 /* ── layout: phones keep one column in reading order; computers get two columns (styles.css: main.split) ── */
@@ -9,22 +9,15 @@
   main.sched > .col { display: contents; }
   #periodCard { order: 1; } #resultCard { order: 2; } #ldCard { order: 3; } #upcomingCard { order: 4; } #yearCard { order: 5; } #timeOffCard { order: 6; }
   #assignCard { order: 1; } #oneOffCard { order: 2; } #recipientsCard { order: 3; } #autoCard { order: 4; }
-  #attendingsCard { order: 5; } #logCard { order: 6; }
+  #peopleCard { order: 5; } #logCard { order: 6; }
 }
 
-/* ── key groups (choose one) ── */
-.keys { display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
-.keys .tab { font-size: 15px; }
+/* ── key groups (choose one; .keys is in styles.css) ── */
 #upcomingFilter .tab { padding: 8px 4px; min-height: 40px; font-size: 14px; }
 #upcoming .sec h3 { color: var(--accent); }
 #toFellows .tab { padding: 8px 4px; min-height: 40px; font-size: 14px; }
 #toBody .stats { margin-bottom: 4px; }
 .rows > li.past { opacity: .62; }
-.tab[aria-checked="true"] {
-  color: #fff; background: var(--cardinal); border-color: var(--cardinal-deep);
-  box-shadow: 0 2px 0 var(--cardinal-deep), inset 0 -3px 0 var(--gold);
-}
-.tab small { display: block; font-size: 12px; font-weight: 600; opacity: .85; }
 .pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .pick .label { margin-top: 2px; }
 .field { margin-bottom: 12px; }
@@ -89,8 +82,12 @@
 .month-head b { font-size: 16px; }
 .month.now .month-head b { color: var(--accent); }
 .month-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.month-grid label { font-size: 13px; font-weight: 700; color: var(--muted); }
+.svc-pick { min-width: 0; }
+.svc-label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); }
 .month-grid select { min-height: 42px; padding: 8px 30px 8px 10px; margin-top: 3px; }
+.month-grid .add-second { font-size: 13px; font-weight: 700; color: var(--accent); text-decoration: none; min-height: 32px; }
+.month-shares { margin-top: 10px; }
+.month-shares .override-toggle { margin-bottom: 8px; }
 .month-grid select.changed { border-color: var(--accent); background-color: var(--cardinal-soft); }
 .month-head .linkbtn { color: var(--accent); font-size: 14px; font-weight: 700; text-decoration: none; min-height: 32px; }
 .month-head .linkbtn.armed { color: var(--err); text-decoration: underline; }
@@ -98,15 +95,13 @@
 .past { margin-top: 10px; border-top: 2px dotted var(--line-strong); padding-top: 10px; }
 .past summary { cursor: pointer; font-weight: 700; color: var(--accent); padding: 4px 0; }
 .past[open] summary { margin-bottom: 6px; }
-.att-row { display: flex; align-items: center; gap: 8px; }
-.att-row b { flex: 1 1 auto; overflow-wrap: anywhere; }
 .month-actions .primary.small { width: auto; margin: 0; padding: 9px 16px 11px; }
 .month-note { font-size: 13px; color: var(--err); margin-top: 6px; }
 .month-note.muted { color: var(--muted); }
 .month .status { margin-top: 8px; }
 @media (max-width: 599px) { .month-grid { grid-template-columns: 1fr 1fr; } }
 
-/* ── admin: recipients, attendings, log ── */
+/* ── admin: recipients, log ── */
 .plist { list-style: none; margin: 0; padding: 0; }
 .plist > li { padding: 10px 0; border-top: 1px solid var(--line); }
 .plist > li:first-child { border-top: 0; padding-top: 2px; }
@@ -121,9 +116,6 @@
 .toggle[aria-pressed="true"]::before { content: '✓'; }
 .toggles .secondary.small { margin-left: auto; }
 .add-row { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 2px dotted var(--line-strong); }
-.add-row .row { display: flex; gap: 8px; }
-.add-row .row input { flex: 1 1 auto; min-width: 0; }
-.add-row .row .secondary { flex: 0 0 auto; }
 .auto-state { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-weight: 800; font-size: 17px; }
 .auto-state .chip { margin-left: 0; font-size: 13px; }
 .next-list { list-style: none; margin: 0 0 12px; padding: 0; font-size: 15px; }
@@ -146,6 +138,3 @@ textarea {
 .send-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .send-row .primary { margin: 0; padding: 12px 10px 15px; font-size: 16px; }
 @media (max-width: 380px) { .send-row { grid-template-columns: 1fr; } }
-
-/* Anything marked hidden stays hidden, whatever its display style. */
-[hidden] { display: none !important; }

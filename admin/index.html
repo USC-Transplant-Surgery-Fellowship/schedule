@@ -10,8 +10,8 @@
   <link rel="preload" href="../assets/fonts/atkinson-hyperlegible-next.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="../assets/styles.css">
   <link rel="stylesheet" href="../assets/schedule.css">
-  <script src="../assets/site.js"></script>
   <script src="https://accounts.google.com/gsi/client" async></script>
+  <script src="../assets/ui.js"></script>
   <script src="../assets/api.js"></script>
 </head>
 <body>
@@ -47,16 +47,10 @@
         <div id="auto"></div>
       </section>
 
-      <section class="card" id="attendingsCard">
-        <h2>Attendings</h2>
-        <p class="hint">The names offered when someone adds a living donor case. Changing the list doesn’t change cases already on the calendar.</p>
-        <div class="status" id="attendingsStatus" role="status" aria-live="polite"></div>
-        <ul class="plist" id="attendings"></ul>
-        <div class="add-row">
-          <label class="label" for="newAttending">Add an attending</label>
-          <div class="row"><input id="newAttending" type="text" autocomplete="off" maxlength="40" placeholder="Last name, as in the case title">
-            <button class="secondary" id="addAttending" type="button">Add</button></div>
-        </div>
+      <section class="card" id="peopleCard">
+        <h2>People &amp; attendings</h2>
+        <p class="hint">Fellows, admins, viewers and the attendings offered when adding a living donor case are managed in the portal, for all the fellowship sites at once.</p>
+        <a class="secondary buttonlink" href="https://portal.usctransplant.life/">Open the portal</a>
       </section>
 
       <section class="card" id="logCard">
@@ -68,7 +62,7 @@
     <div class="col wide">
       <section class="card" id="assignCard">
         <h2>Monthly assignments</h2>
-        <p class="hint">All four services must be covered, and each fellow can be on only one service a month (cross-cover is separate). Saving updates the events on the service calendars.</p>
+        <p class="hint">All four services must be covered, and each fellow can be on only one service a month (cross-cover is separate). Two fellows can share a service when you tick that they do. Saving updates the events on the service calendars.</p>
         <ul class="months" id="months"><li class="loading">Loading…</li></ul>
         <details class="past" id="pastMonths" hidden><summary id="pastSummary">Earlier months</summary><ul class="months" id="monthsPast"></ul></details>
       </section>
@@ -99,25 +93,13 @@
 
   <script>
   (function () {
-    var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    var state = { view: null, drafts: {}, monthStatus: {}, armed: '', editing: '', newToggles: { weekly: true, monthly: true, preview: false },
-      oneOff: { kind: 'week', week: '', month: '', preview: null, seq: 0 }, me: '' };
+    var state = { view: null, drafts: {}, armed: '', newToggles: { weekly: true, monthly: true, preview: false },
+      oneOff: { kind: 'week', week: '', month: '', preview: null, seq: 0 } };
     var timer = null;
 
-    function $(id) { return document.getElementById(id); }
-    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-    function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
-    function busy(on) { document.body.classList[on ? 'add' : 'remove']('busy'); }
-    function showStatus(box, kind, title, lines) {
-      clear(box);
-      if (!kind) return;
-      var b = el('div', 'box ' + kind);
-      if (title) b.appendChild(el('b', null, title));
-      if (lines && lines.length) { var ul = el('ul'); lines.forEach(function (l) { ul.appendChild(el('li', null, l)); }); b.appendChild(ul); }
-      box.appendChild(b);
-    }
-    function button(cls, text, fn) { var b = el('button', cls, text); b.type = 'button'; b.addEventListener('click', fn); return b; }
-    /** A button that needs a second tap. id must be unique on the page. */
+    var $ = UI.$, el = UI.el, clear = UI.clear, busy = UI.busy, showStatus = UI.showStatus, button = UI.button, plural = UI.plural;
+    var monthLabel = UI.monthLabel, addMonths = UI.addMonths;
+    /** A button that needs a second tap, kept armed across re-draws (state.armed). id must be unique on the page. */
     function confirmButton(id, cls, text, armedText, fn) {
       var armed = state.armed === id;
       return button(cls + (armed ? ' armed' : ''), armed ? armedText : text, function () {
@@ -142,8 +124,6 @@
       }, function (err) { busy(false); if (err.code !== 'auth') { render(); showStatus(target(), 'error', failTitle, [err.message]); } });
     }
     function monthStatus(month) { return function () { return document.querySelector('#month-' + month + ' .status'); }; }
-    function monthLabel(m) { var p = m.split('-').map(Number); return MONTHS[p[1] - 1] + ' ' + p[0]; }
-    function addMonths(m, n) { var p = m.split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1 + n, 1)).toISOString().slice(0, 7); }
 
     function loadAll() {
       busy(true);
@@ -156,29 +136,48 @@
 
     function render() {
       if (!state.view) return;
-      renderMonths(); renderRecipients(); renderAuto(); renderAttendings(); renderLog(); renderOneOff();
+      renderMonths(); renderRecipients(); renderAuto(); renderLog(); renderOneOff();
     }
 
     /* ── monthly assignments ── */
+    // A month's choice for a service: { names: [one or two fellows], shared: both confirmed as sharing it, second: show the 2nd picker }.
     function currentOf(m, svc) {
-      var s = m.services[svc];
-      return s.names.length === 1 && !s.irregular && state.view.year.fellows.indexOf(s.names[0]) !== -1 ? s.names[0] : '';
+      var s = m.services[svc], fellows = state.view.year.fellows;
+      var known = s.names.length && s.names.every(function (n) { return fellows.indexOf(n) !== -1; });
+      if (known && !s.irregular && s.names.length === 1) return { names: s.names.slice(), shared: false };
+      if (known && s.shared) return { names: s.names.slice(), shared: true };
+      return { names: [], shared: false };
+    }
+    function sameChoice(a, b) {
+      return a.names.slice().sort().join('|') === b.names.slice().sort().join('|') && (a.names.length < 2 || a.shared === b.shared);
     }
     function draftOf(m) {
-      var d = state.drafts[m.month] || {};
-      var out = {};
-      state.view.year.services.forEach(function (svc) { out[svc] = svc in d ? d[svc] : currentOf(m, svc); });
+      var d = state.drafts[m.month] || {}, out = {};
+      state.view.year.services.forEach(function (svc) { out[svc] = d[svc] || currentOf(m, svc); });
       return out;
     }
-    function shortNames(names) {
-      var first = names.map(function (n) { return n.split(' ')[0]; });
-      var out = {};
-      names.forEach(function (n, i) { out[n] = first.filter(function (f) { return f === first[i]; }).length > 1 ? n : first[i]; });
+    function setDraft(m, svc, choice) {
+      state.drafts[m.month] = state.drafts[m.month] || {};
+      state.drafts[m.month][svc] = choice;
+      renderMonths();
+    }
+    /** What the server is sent: a name, or { names, shared } for two fellows. */
+    function choiceToSave(m) {
+      var d = draftOf(m), out = {};
+      Object.keys(d).forEach(function (svc) { out[svc] = d[svc].names.length > 1 ? { names: d[svc].names, shared: !!d[svc].shared } : (d[svc].names[0] || ''); });
       return out;
+    }
+    function fellowSelect(label, value, short, blank, onPick) {
+      var sel = el('select'); sel.setAttribute('aria-label', label);
+      var none = el('option', null, blank); none.value = ''; sel.appendChild(none);
+      state.view.year.fellows.forEach(function (n) { var o = el('option', null, short[n]); o.value = n; o.title = n; sel.appendChild(o); });
+      sel.value = value;
+      sel.addEventListener('change', function () { onPick(sel.value); });
+      return sel;
     }
     function renderMonths() {
       var ul = $('months'), past = $('monthsPast'); clear(ul); clear(past);
-      var y = state.view.year, short = shortNames(y.fellows), thisMonth = state.view.today.slice(0, 7);
+      var y = state.view.year, short = UI.shortNames(y.fellows), thisMonth = state.view.today.slice(0, 7);
       var earlier = y.months.filter(function (m) { return m.month < thisMonth; });
       $('pastMonths').hidden = !earlier.length;
       if (earlier.length) $('pastSummary').textContent = 'Earlier months (' + earlier[0].label + (earlier.length > 1 ? ' – ' + earlier[earlier.length - 1].label : '') + ')';
@@ -188,37 +187,60 @@
         var head = el('div', 'month-head');
         head.appendChild(el('b', null, m.label + (m.current ? ' (this month)' : '')));
         li.appendChild(head);
-        var draft = draftOf(m), changed = false, counts = {};
-        var grid = el('div', 'month-grid');
+        var draft = draftOf(m), changed = false, counts = {}, unconfirmed = [];
+        var grid = el('div', 'month-grid'), shares = el('div', 'month-shares');
         y.services.forEach(function (svc) {
-          var lab = el('label'); lab.appendChild(document.createTextNode(svc));
-          var sel = el('select'); sel.setAttribute('aria-label', svc + ', ' + m.label);
-          var none = el('option', null, '—'); none.value = ''; sel.appendChild(none);
-          y.fellows.forEach(function (n) { var o = el('option', null, short[n]); o.value = n; o.title = n; sel.appendChild(o); });
-          sel.value = draft[svc];
-          if (draft[svc] !== currentOf(m, svc) || m.services[svc].irregular && draft[svc]) { sel.classList.add('changed'); changed = true; }
-          if (draft[svc]) counts[draft[svc]] = (counts[draft[svc]] || 0) + 1;
-          sel.addEventListener('change', function () {
-            state.drafts[m.month] = state.drafts[m.month] || {};
-            state.drafts[m.month][svc] = sel.value; delete state.monthStatus[m.month]; renderMonths();
-          });
-          lab.appendChild(sel); grid.appendChild(lab);
+          var d = draft[svc], names = d.names;
+          var cell = el('div', 'svc-pick');
+          cell.appendChild(el('span', 'svc-label', svc));
+          // keepSecond: leave the second picker open (it was opened, and the first picker changed). A new pair must be ticked again.
+          var pick = function (first, second, keepSecond) {
+            var next = [first, second].filter(function (n, i, all) { return n && all.indexOf(n) === i; });
+            var samePair = next.length > 1 && next.slice().sort().join('|') === names.slice().sort().join('|');
+            setDraft(m, svc, { names: next, shared: samePair && d.shared, second: next.length > 1 || (!!d.second && keepSecond) });
+          };
+          var sel = fellowSelect(svc + ', ' + m.label, names[0] || '', short, '—', function (v) { pick(v, names[1], true); });
+          var isChanged = !sameChoice(d, currentOf(m, svc)) || (m.services[svc].irregular && names.length > 0 && !m.services[svc].shared);
+          if (isChanged) { sel.classList.add('changed'); changed = true; }
+          cell.appendChild(sel);
+          if (names.length > 1 || d.second) {
+            var sel2 = fellowSelect(svc + ', second fellow, ' + m.label, names[1] || '', short, '— just one', function (v) { pick(names[0], v, false); });
+            if (isChanged) sel2.classList.add('changed');
+            cell.appendChild(sel2);
+          } else if (names.length === 1) {
+            cell.appendChild(button('linkbtn add-second', '+ Second fellow', function () { setDraft(m, svc, { names: names.slice(), shared: false, second: true }); }));
+          }
+          names.forEach(function (n) { counts[n] = (counts[n] || 0) + 1; });
+          if (names.length > 1) {
+            var row = el('label', 'override-toggle');
+            var box = el('input'); box.type = 'checkbox'; box.checked = !!d.shared;
+            box.addEventListener('change', function () { setDraft(m, svc, { names: names.slice(), shared: box.checked, second: true }); });
+            var text = el('span');
+            text.appendChild(el('b', null, 'Two fellows share ' + svc));
+            text.appendChild(el('br'));
+            text.appendChild(document.createTextNode(names.join(' and ') + ' are both on ' + svc + ' all month. While either of them is around, ' + svc + ' needs no cross-cover.'));
+            row.appendChild(box); row.appendChild(text); shares.appendChild(row);
+            if (!d.shared) unconfirmed.push(svc);
+          }
+          grid.appendChild(cell);
         });
         li.appendChild(grid);
+        if (shares.firstChild) li.appendChild(shares);
         var notes = [];
         y.services.forEach(function (svc) {
           var s = m.services[svc];
-          if (s.others && s.others.length) notes.push('Also on ' + svc + ': ' + s.others.join(', ') + ' (not a fellow; kept when you save).');
+          if (s.others && s.others.length) notes.push('Also on ' + svc + ': ' + s.others.join(', ') + ' (not a call-schedule fellow; kept when you save).');
           if (s.recurring) notes.push(svc + ' is a repeating event — change it in Google Calendar.');
-          else if (s.irregular && s.names.length) notes.push(svc + ' on the calendar now: ' + s.detail + '. Saving replaces it with one person for the whole month.');
+          else if (s.irregular && s.names.length) notes.push(svc + ' on the calendar now: ' + s.detail + '. Saving replaces it with the fellows chosen here for the whole month.');
         });
-        var missing = y.services.filter(function (svc) { return !draft[svc]; });
+        var missing = y.services.filter(function (svc) { return !draft[svc].names.length; });
         var dups = Object.keys(counts).filter(function (n) { return counts[n] > 1; });
         dups.forEach(function (n) { notes.push(n + ' is chosen for more than one service.'); });
+        unconfirmed.forEach(function (svc) { notes.push('Tick “Two fellows share ' + svc + '” to save two fellows on it.'); });
         if (missing.length && changed) notes.push('Choose someone for ' + missing.join(', ') + '.');
         else if (missing.length === y.services.length) notes.push('Nobody assigned yet.');
         else if (missing.length) notes.push(missing.join(', ') + ' ' + (missing.length === 1 ? 'has' : 'have') + ' no fellow assigned.');
-        notes.forEach(function (n) { li.appendChild(el('div', 'month-note' + (/repeating|more than one|Choose|no fellow|Nobody/.test(n) ? '' : ' muted'), n)); });
+        notes.forEach(function (n) { li.appendChild(el('div', 'month-note' + (/repeating|more than one|Choose|no fellow|Nobody|Tick/.test(n) ? '' : ' muted'), n)); });
         var any = y.services.some(function (svc) { return m.services[svc].names.length; });
         if (any) head.appendChild(confirmButton('clear-' + m.month, 'linkbtn', 'Remove month', 'Tap again to remove all four', function () {
           change('apiAdminClearAssignments', [m.month], monthStatus(m.month), 'Removed', 'Not removed', function () { delete state.drafts[m.month]; });
@@ -226,9 +248,9 @@
         if (changed) {
           var actions = el('div', 'month-actions');
           var save = button('primary small', 'Save ' + m.label.split(' ')[0], function () {
-            change('apiAdminSetAssignments', [m.month, draftOf(m)], monthStatus(m.month), 'Saved', 'Not saved', function () { delete state.drafts[m.month]; });
+            change('apiAdminSetAssignments', [m.month, choiceToSave(m)], monthStatus(m.month), 'Saved', 'Not saved', function () { delete state.drafts[m.month]; });
           });
-          save.disabled = missing.length > 0 || dups.length > 0;
+          save.disabled = missing.length > 0 || dups.length > 0 || unconfirmed.length > 0;
           actions.appendChild(save);
           actions.appendChild(button('secondary small', 'Undo', function () { delete state.drafts[m.month]; renderMonths(); }));
           li.appendChild(actions);
@@ -248,10 +270,11 @@
     }
     function renderRecipients() {
       var ul = $('recipients'); clear(ul);
-      var list = state.view.email.recipients;
+      var list = state.view.email.recipients, all = state.view.email.allFellows;
       list.forEach(function (r) {
         var li = el('li');
-        li.appendChild(el('span', 'addr', r.email));
+        // "All fellows" is everyone with the fellow role on the call schedule (from the portal), whoever they are that day.
+        li.appendChild(el('span', 'addr', r.email === all.key ? 'All fellows (' + (all.names.join(', ') || 'none yet') + ')' : r.email));
         var row = el('div', 'toggles');
         toggles(row, r, function (k, v) {
           var next = { type: 'update', key: r.email, email: r.email, weekly: r.weekly, monthly: r.monthly, preview: r.preview };
@@ -265,6 +288,14 @@
         ul.appendChild(li);
       });
       if (!list.length) ul.appendChild(el('li', 'empty', 'Nobody gets the emails yet.'));
+      if (!list.some(function (r) { return r.email === all.key; })) {
+        var li2 = el('li');
+        li2.appendChild(UI.button('secondary small', 'Add all fellows', function () {
+          change('apiAdminChangeRecipients', [{ type: 'add', email: all.key, weekly: true, monthly: true, preview: false }], $('recipientsStatus'), 'Added', 'Not added');
+        }));
+        li2.appendChild(el('span', 'hint small', ' Everyone with the fellow role on the call schedule, kept up to date from the portal.'));
+        ul.appendChild(li2);
+      }
       var nt = $('newRecipientToggles'); clear(nt);
       toggles(nt, state.newToggles, function (k, v) { state.newToggles[k] = v; renderRecipients(); });
     }
@@ -294,41 +325,7 @@
       if (e.quota != null) box.appendChild(el('p', 'hint small', 'Google lets this account email ' + e.quota + ' more recipients today.'));
     }
 
-    /* ── attendings ── */
-    function renderAttendings() {
-      var ul = $('attendings'); clear(ul);
-      state.view.attendings.forEach(function (a) {
-        var li = el('li');
-        if (state.editing === a) {
-          var row = el('div', 'add-row'); row.style.borderTop = '0'; row.style.marginTop = '0'; row.style.paddingTop = '0';
-          var r = el('div', 'row'); var input = el('input'); input.type = 'text'; input.value = a; input.maxLength = 40;
-          r.appendChild(input);
-          r.appendChild(button('secondary', 'Save', function () {
-            change('apiAdminChangeAttendings', [{ type: 'edit', key: a, name: input.value }], $('attendingsStatus'), 'Saved', 'Not saved', function () { state.editing = ''; });
-          }));
-          row.appendChild(r);
-          row.appendChild(button('linkbtn', 'Cancel', function () { state.editing = ''; renderAttendings(); }));
-          li.appendChild(row); ul.appendChild(li); setTimeout(function () { input.focus(); }, 0); return;
-        }
-        var line = el('div', 'att-row');
-        line.appendChild(el('b', null, a));
-        line.appendChild(button('secondary small', 'Edit', function () { state.editing = a; renderAttendings(); }));
-        line.appendChild(confirmButton('att-' + a, 'secondary small', 'Remove', 'Tap again', function () {
-          change('apiAdminChangeAttendings', [{ type: 'remove', key: a }], $('attendingsStatus'), 'Removed', 'Not removed');
-        }));
-        li.appendChild(line); ul.appendChild(li);
-      });
-      if (!state.view.attendings.length) ul.appendChild(el('li', 'empty', 'No attendings yet — living donor cases can’t be added until there is one.'));
-    }
-
-    function renderLog() {
-      var ul = $('log'); clear(ul);
-      state.view.log.forEach(function (l) {
-        var li = el('li'); li.appendChild(document.createTextNode(l.what));
-        li.appendChild(el('span', 'when', l.at + ' · ' + l.by)); ul.appendChild(li);
-      });
-      if (!state.view.log.length) ul.appendChild(el('li', 'empty', 'No changes yet.'));
-    }
+    function renderLog() { UI.fillLog($('log'), state.view.log); }
 
     /* ── one-off email ── */
     function renderOneOff() {
@@ -348,7 +345,7 @@
       $('mailTo').textContent = p ? 'To: ' + (n ? p.recipients.join(', ') : 'nobody — add recipients first') : '';
       var live = $('sendLive');
       var armed = state.armed === 'send-live';
-      live.textContent = armed ? 'Tap again to send to ' + n : 'Send to ' + n + ' recipient' + (n === 1 ? '' : 's');
+      live.textContent = armed ? 'Tap again to send to ' + n : 'Send to ' + plural(n, 'recipient');
       live.classList.toggle('armed', armed);
       live.disabled = !p || !n;
       $('sendTest').disabled = !p;
@@ -381,9 +378,6 @@
         change('apiAdminChangeRecipients', [{ type: 'add', email: $('newRecipient').value, weekly: t.weekly, monthly: t.monthly, preview: t.preview }],
           $('recipientsStatus'), 'Added', 'Not added', function () { $('newRecipient').value = ''; refreshPreview(); });
       });
-      $('addAttending').addEventListener('click', function () {
-        change('apiAdminChangeAttendings', [{ type: 'add', name: $('newAttending').value }], $('attendingsStatus'), 'Added', 'Not added', function () { $('newAttending').value = ''; });
-      });
     }
     function send(mode) {
       busy(true);
@@ -396,11 +390,7 @@
     }
 
     setupOneOff();
-    TimeOffApi.start({
-      need: 'admin',
-      links: [{ label: 'Schedule', href: '../' }, { label: 'Time-off admin', href: 'https://timeoff.usctransplant.life/admin/' }],
-      onReady: function (who) { state.me = who.email; loadAll(); },
-    });
+    TimeOffApi.start({ app: 'schedule', need: 'admin', mainUrl: '../', onReady: function () { loadAll(); } });
   })();
   </script>
 </body>
