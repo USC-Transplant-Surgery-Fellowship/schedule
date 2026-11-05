@@ -77,7 +77,6 @@
 
       <section class="card" id="upcomingCard">
         <h2>Upcoming living donor cases</h2>
-        <p class="hint" id="upcomingHint">Every case from today on.</p>
         <div class="keys" style="--n:4" role="radiogroup" aria-label="Which calendar" id="upcomingFilter">
           <button class="tab" type="button" role="radio" data-cal="" aria-checked="true">All</button>
           <button class="tab" type="button" role="radio" data-cal="Kidney" aria-checked="false">Kidney</button>
@@ -90,13 +89,11 @@
 
       <section class="card" id="yearCard">
         <h2 id="yearTitle">Monthly assignments</h2>
-        <p class="hint">Which service each fellow is on, by month.</p>
         <div class="year-wrap"><table class="year" id="year"><tbody><tr><td class="loading">Loading…</td></tr></tbody></table></div>
       </section>
 
       <section class="card" id="timeOffCard">
         <h2 id="timeOffTitle">Time off and cross-cover</h2>
-        <p class="hint">Weekends off and who covered them, vacation and other time off (past and upcoming), and the cross-cover each fellow does. Changes are made on the time-off site.</p>
         <div class="keys" role="radiogroup" aria-label="Fellow" id="toFellows"></div>
         <div id="toBody"><div class="loading">Loading…</div></div>
       </section>
@@ -130,10 +127,9 @@
       }, failTo($('resultStatus'), 'Couldn’t load the schedule'));
     }
     function setupPicks() {
-      var sel = $('monthPick'), now = UI.todayKey().slice(0, 7);
+      var sel = $('monthPick');
       clear(sel);
       var pick = el('option', null, 'Choose…'); pick.value = ''; pick.disabled = true; sel.appendChild(pick);
-      for (var i = -12; i <= 12; i++) { var m = addMonths(now, i); var o = el('option', null, monthLabel(m)); o.value = m; sel.appendChild(o); }
       document.querySelectorAll('#presets .tab').forEach(function (b) {
         b.addEventListener('click', function () { if (state.data) load(b.dataset.kind, state.data.presets[b.dataset.preset]); });
       });
@@ -161,6 +157,14 @@
         var on = b.dataset.kind === d.kind && d.presets[b.dataset.preset] === d.key;
         b.setAttribute('aria-checked', on ? 'true' : 'false');
       });
+      // Only weeks and months from the site's dates (August through July) can be chosen.
+      var r = d.range, sel = $('monthPick');
+      if (sel.options.length < 2) {
+        for (var m = r.firstMonth; m <= r.lastMonth; m = addMonths(m, 1)) { var o = el('option', null, monthLabel(m)); o.value = m; sel.appendChild(o); }
+      }
+      $('weekPick').min = r.firstDay; $('weekPick').max = r.lastDay;
+      $('prevBtn').disabled = d.kind === 'month' ? d.key <= r.firstMonth : p.start <= r.firstDay;
+      $('nextBtn').disabled = d.kind === 'month' ? d.key >= r.lastMonth : p.end >= r.lastDay;
       $('weekPick').value = d.kind === 'week' ? d.key : '';
       $('monthPick').value = d.kind === 'month' ? d.key : '';
       $('onlyMeRow').hidden = !me;
@@ -273,7 +277,6 @@
       var cal = state.upcomingCal;
       document.querySelectorAll('#upcomingFilter .tab').forEach(function (b) { b.setAttribute('aria-checked', b.dataset.cal === cal ? 'true' : 'false'); });
       var cases = u.cases.filter(function (l) { return !cal || l.service === cal; });
-      $('upcomingHint').textContent = plural(cases.length, 'case') + (cal ? ' on the ' + cal + ' calendar' : '') + ' from today through ' + u.through + '.';
       var box = $('upcoming'); clear(box);
       if (!cases.length) { box.appendChild(el('p', 'empty', 'No upcoming cases.')); return; }
       var month = '', ul = null;
@@ -303,6 +306,7 @@
       });
       var f = t.fellows.filter(function (x) { return x.name === state.toFellow; })[0];
       var box = $('toBody'); clear(box); if (!f) return;
+      box.appendChild(el('h3', 'stats-title', 'Vacation Days'));
       box.appendChild(UI.tallyStats(f.tally));
       var covered = function (list) {
         return list.length ? 'Covered by ' + list.map(function (c) { return c.name + ' (' + c.service + (c.partial ? ', ' + c.label : '') + ')'; }).join(', ')
@@ -356,8 +360,7 @@
         var tr = el('tr', m.current ? 'now' : '');
         tr.appendChild(el('td', null, m.label.slice(0, 3) + ' ' + m.month.slice(0, 4)));
         y.fellows.forEach(function (n) {
-          // A service two fellows share that month is marked "(shared)".
-          var list = (m.byFellow[n] || []).map(function (svc) { return svc + (m.services[svc] && m.services[svc].shared ? ' (shared)' : ''); });
+          var list = m.byFellow[n] || [];
           tr.appendChild(el('td', n === me ? 'me' : '', list.length ? list.join(' / ') : '—'));
         });
         tb.appendChild(tr);
@@ -387,7 +390,9 @@
       var sel = $('ldAttending'); clear(sel);
       var blank = el('option', null, 'Choose…'); blank.value = ''; sel.appendChild(blank);
       f.attendings.forEach(function (a) { var o = el('option', null, a); o.value = a; sel.appendChild(o); });
-      $('ldDate').min = state.me.isAdmin ? '' : state.data.today;
+      var r = state.data.range;
+      $('ldDate').min = state.me.isAdmin || state.data.today < r.firstDay ? r.firstDay : state.data.today;
+      $('ldDate').max = r.lastDay;
       ['ldDate', 'ldAttending', 'ldMrn'].forEach(function (id) { $(id).addEventListener('input', ldPreview); $(id).addEventListener('change', ldPreview); });
       $('ldAdd').addEventListener('click', addCase);
       ldPreview();
@@ -402,7 +407,8 @@
       if (!v.date) missing.push('date'); if (!v.organ) missing.push('organ'); if (!v.kind) missing.push('procedure');
       if (!v.location) missing.push('location'); if (!v.slot) missing.push('time'); if (!v.attending) missing.push('attending'); if (!v.mrn) missing.push('MRN');
       $('ldAdd').disabled = missing.length > 0;
-      if (missing.length) { box.appendChild(document.createTextNode('Still needed: ' + missing.join(', ') + '.')); return; }
+      box.hidden = missing.length > 0;
+      if (missing.length) return;
       var slot = state.data.livingDonorForm.slots.filter(function (s) { return s.key === v.slot; })[0];
       var cal = v.location === 'CHLA' ? 'CHLA' : v.organ;
       box.appendChild(el('b', null, 'Living Donor ' + v.organ + ' ' + v.kind + ' (' + v.attending + ') - ' + v.mrn));
