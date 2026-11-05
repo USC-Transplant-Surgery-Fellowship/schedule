@@ -270,10 +270,11 @@
     }
     function renderRecipients() {
       var ul = $('recipients'); clear(ul);
-      var list = state.view.email.recipients;
+      var list = state.view.email.recipients, all = state.view.email.allFellows;
       list.forEach(function (r) {
         var li = el('li');
-        li.appendChild(el('span', 'addr', r.email));
+        // "All fellows" is everyone with the fellow role on the call schedule (from the portal), whoever they are that day.
+        li.appendChild(el('span', 'addr', r.email === all.key ? 'All fellows (' + (all.names.join(', ') || 'none yet') + ')' : r.email));
         var row = el('div', 'toggles');
         toggles(row, r, function (k, v) {
           var next = { type: 'update', key: r.email, email: r.email, weekly: r.weekly, monthly: r.monthly, preview: r.preview };
@@ -287,6 +288,14 @@
         ul.appendChild(li);
       });
       if (!list.length) ul.appendChild(el('li', 'empty', 'Nobody gets the emails yet.'));
+      if (!list.some(function (r) { return r.email === all.key; })) {
+        var li2 = el('li');
+        li2.appendChild(UI.button('secondary small', 'Add all fellows', function () {
+          change('apiAdminChangeRecipients', [{ type: 'add', email: all.key, weekly: true, monthly: true, preview: false }], $('recipientsStatus'), 'Added', 'Not added');
+        }));
+        li2.appendChild(el('span', 'hint small', ' Everyone with the fellow role on the call schedule, kept up to date from the portal.'));
+        ul.appendChild(li2);
+      }
       var nt = $('newRecipientToggles'); clear(nt);
       toggles(nt, state.newToggles, function (k, v) { state.newToggles[k] = v; renderRecipients(); });
     }
