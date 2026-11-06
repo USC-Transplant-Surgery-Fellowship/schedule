@@ -153,6 +153,15 @@
       return a.names.slice().sort().join('|') === b.names.slice().sort().join('|');
     }
     function isHpb(n) { return state.view.year.hpbFellows.indexOf(n) !== -1; }
+    // The month rules come from the server as the very function it checks every save with, so they can't disagree.
+    var rulesSource = '', rules = null;
+    function monthErrors(m, draft) {
+      if (!state.view.rules) return []; // a server from before the rules were shared: it still checks every save
+      if (rulesSource !== state.view.rules) { rulesSource = state.view.rules; rules = new Function('return (' + rulesSource + ')')(); }
+      var picks = {};
+      state.view.year.services.forEach(function (svc) { picks[svc] = draft[svc].names; });
+      return rules(picks, { services: state.view.year.services, shareable: state.view.year.shareable, hpb: state.view.year.hpbFellows, label: m.label });
+    }
     function shareable(svc) { return (state.view.year.shareable || []).indexOf(svc) !== -1; }
     /** Who can be the second fellow on a service with first: an HPB fellow if first isn't one, otherwise anyone who isn't. */
     function partnersFor(first) {
@@ -194,7 +203,7 @@
         var head = el('div', 'month-head');
         head.appendChild(el('b', null, m.label + (m.current ? ' (this month)' : '')));
         li.appendChild(head);
-        var draft = draftOf(m), changed = false, counts = {}, errors = [];
+        var draft = draftOf(m), changed = false;
         var grid = el('div', 'month-grid');
         y.services.forEach(function (svc) {
           var d = draft[svc], names = d.names;
@@ -218,11 +227,6 @@
           } else if (names.length === 1 && partners.length) {
             cell.appendChild(button('linkbtn add-second', isHpb(names[0]) ? '+ Second fellow' : '+ HPB fellow', function () { setDraft(m, svc, { names: names.slice(), second: true }); }));
           }
-          names.forEach(function (n) { counts[n] = (counts[n] || 0) + 1; });
-          // The rules, each with a message that says exactly what is wrong.
-          if (names.length > 1 && !shareable(svc)) errors.push(svc + ' can only have one fellow. Only ' + state.view.year.shareable.join(' and ') + ' can have two.');
-          else if (names.length > 1 && isHpb(names[0]) && isHpb(names[1])) errors.push(names.join(' and ') + ' can’t share ' + svc + ': they are both HPB fellows. Two fellows can share a service only when exactly one is an HPB fellow.');
-          else if (names.length > 1 && !isHpb(names[0]) && !isHpb(names[1])) errors.push(names.join(' and ') + ' can’t share ' + svc + ': neither is an HPB fellow. Two fellows can share ' + svc + ' only when one of them is an HPB fellow.');
           grid.appendChild(cell);
         });
         li.appendChild(grid);
@@ -233,15 +237,10 @@
           if (s.recurring) notes.push(svc + ' is a repeating event — change it in Google Calendar.');
           else if (s.irregular && s.names.length) notes.push(svc + ' on the calendar now: ' + s.detail + '. Saving replaces it with the fellows chosen here for the whole month.');
         });
-        var missing = y.services.filter(function (svc) { return !draft[svc].names.length; });
-        var dups = Object.keys(counts).filter(function (n) { return counts[n] > 1; });
-        dups.forEach(function (n) {
-          var where = y.services.filter(function (svc) { return draft[svc].names.indexOf(n) !== -1; });
-          errors.push(n + ' is on both ' + where.join(' and ') + ' in ' + m.label + '. Each fellow can be on only one service a month.');
-        });
-        if (missing.length === y.services.length && !changed) notes.push('Nobody assigned yet.');
-        else if (missing.length) errors.push(missing.join(' and ') + (missing.length === 1 ? ' has' : ' have') + ' no fellow in ' + m.label + '. Every service needs a fellow each month.');
-        // Problems in red (they stop a save); other notes in grey.
+        // The rules' errors in red (they stop a save), each saying exactly what is wrong; other notes in grey.
+        var empty = y.services.every(function (svc) { return !draft[svc].names.length; });
+        var errors = empty && !changed ? [] : monthErrors(m, draft);
+        if (empty && !changed) notes.push('Nobody assigned yet.');
         errors.forEach(function (n) { li.appendChild(el('div', 'month-note', n)); });
         notes.forEach(function (n) { li.appendChild(el('div', 'month-note muted', n)); });
         var any = y.services.some(function (svc) { return m.services[svc].names.length; });
@@ -314,10 +313,11 @@
       var box = $('auto'); clear(box);
       var e = state.view.email, n = e.next;
       var head = el('div', 'auto-state');
-      head.appendChild(el('span', 'chip ' + (e.automatic ? 'ok' : 'bad'), e.automatic ? 'On' : e.partlyOn ? 'Partly on' : 'Off'));
+      head.appendChild(el('span', 'chip ' + (e.automatic ? 'ok' : 'bad'), e.automatic ? 'On' : 'Off'));
       head.appendChild(document.createTextNode(e.automatic ? 'Sending on schedule' : 'Not sending automatically'));
       box.appendChild(head);
-      if (e.partlyOn) box.appendChild(el('p', 'hint', 'Some of the automatic sends are missing. Turn them on again to fix it.'));
+      if (e.automatic) box.appendChild(el('p', 'hint', 'If an email can’t go out on time, it goes out within the hour after, while it’s still useful.'));
+      if (!e.checking) box.appendChild(el('p', 'hint', 'The hourly check that sends them isn’t set up yet. Reload this page to set it up.'));
       var ul = el('ul', 'next-list');
       var w = el('li'); w.appendChild(el('b', null, 'Weekly: ' + n.weekly.send + ', ' + n.weekly.hours));
       w.appendChild(el('span', null, 'Covers ' + n.weekly.covers + '. Preview ' + n.weekly.preview + '.')); ul.appendChild(w);
