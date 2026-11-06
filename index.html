@@ -157,7 +157,7 @@
         var on = b.dataset.kind === d.kind && d.presets[b.dataset.preset] === d.key;
         b.setAttribute('aria-checked', on ? 'true' : 'false');
       });
-      // Only weeks and months from the site's dates (August through July) can be chosen.
+      // Only weeks and months of the academic year shown (August through July) can be chosen.
       var r = d.range, sel = $('monthPick');
       if (sel.options.length < 2) {
         for (var m = r.firstMonth; m <= r.lastMonth; m = addMonths(m, 1)) { var o = el('option', null, monthLabel(m)); o.value = m; sel.appendChild(o); }
@@ -295,11 +295,11 @@
     }
     function renderTimeOff() {
       var t = state.timeOff; if (!t || !state.me) return;
-      $('timeOffTitle').textContent = 'Time off and cross-cover';
       if (!state.toFellow) state.toFellow = t.fellows.some(function (f) { return f.name === state.me.name; }) ? state.me.name : (t.fellows[0] || {}).name;
       var keys = $('toFellows'); clear(keys); keys.style.setProperty('--n', Math.min(4, t.fellows.length));
+      var short = UI.shortNames(t.fellows.map(function (f) { return f.name; }));
       t.fellows.forEach(function (f) {
-        var b = el('button', 'tab', f.name.split(' ')[0]); b.type = 'button'; b.setAttribute('role', 'radio'); b.title = f.name;
+        var b = el('button', 'tab', short[f.name]); b.type = 'button'; b.setAttribute('role', 'radio'); b.title = f.name;
         b.setAttribute('aria-checked', f.name === state.toFellow ? 'true' : 'false');
         b.addEventListener('click', function () { state.toFellow = f.name; renderTimeOff(); });
         keys.appendChild(b);
