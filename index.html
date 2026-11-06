@@ -157,7 +157,7 @@
         var on = b.dataset.kind === d.kind && d.presets[b.dataset.preset] === d.key;
         b.setAttribute('aria-checked', on ? 'true' : 'false');
       });
-      // Only weeks and months of the academic year shown (August through July) can be chosen.
+      // Offer only weeks and months of the academic year shown (August through July).
       var r = d.range, sel = $('monthPick');
       if (sel.options.length < 2) {
         for (var m = r.firstMonth; m <= r.lastMonth; m = addMonths(m, 1)) { var o = el('option', null, monthLabel(m)); o.value = m; sel.appendChild(o); }
@@ -387,7 +387,7 @@
       keyGroup('ldSlot', 'slot', f.slots);
       var sel = $('ldAttending'); clear(sel);
       var blank = el('option', null, 'Choose…'); blank.value = ''; sel.appendChild(blank);
-      f.attendings.forEach(function (a) { var o = el('option', null, a); o.value = a; sel.appendChild(o); });
+      f.attendings.forEach(function (a) { var o = el('option', null, a.label); o.value = a.value; sel.appendChild(o); });
       var r = state.data.range;
       $('ldDate').min = state.me.isAdmin || state.data.today < r.firstDay ? r.firstDay : state.data.today;
       $('ldDate').max = r.lastDay;
