@@ -28,7 +28,8 @@ Assignment rules:
 - All four services need a fellow every month.
 - Each fellow covers one service per month. Cross-cover doesn't count.
 - Liver or HPB may hold two fellows when exactly one is an HPB fellow. The portal marks HPB fellows.
-- The HPB fellow stands in for the other fellow on a shared service, so that fellow needs no cross-cover when off.
+- On a shared Liver month, the HPB fellow stands in, so the other fellow needs no cross-cover when off.
+- On a shared HPB month, the transplant fellow still needs cross-cover from another transplant fellow.
 - HPB fellows never cross-cover any service.
 
 The portal (https://portal.usctransplant.life) manages people, roles and the attendings offered for living donor cases.
