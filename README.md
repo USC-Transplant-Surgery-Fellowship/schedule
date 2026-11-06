@@ -1,54 +1,78 @@
-# Fellowship Call Schedule
+# USC Transplant Surgery Fellowship — Call Schedule
 
 The call-schedule site for the USC Transplant Surgery Fellowship: **https://schedule.usctransplant.life**
 
-- **Everyone with a role on the call schedule** (set in the portal: viewer, fellow or admin) can see any week or month —
-  the same sections as the weekly/monthly emails: services, time off, cross-cover and living donor cases — see the
-  year's monthly assignments and each fellow's time off and cross-cover. Fellows can filter it to just themselves.
-- **Fellows and admins** can also **add or remove living donor cases** (fellows: from today on).
-- **Admins** (`/admin/`) change the monthly service assignments (one fellow per service; Liver and HPB can also have an HPB
-  fellow, ticked in the portal; the HPB fellow doesn't count as cross-cover for the other fellow), who gets the emails (weekly,
-  monthly, previews), turn automatic emails on or off, and send one-off emails with a message at the top.
+This repository holds only the pages. GitHub Pages serves them. They contain no personal data.
+The server lives in the private `timeoff-backend` repository, in the `schedule*.gs` files.
+Its README covers administration, accounts and handover for all three sites.
 
-People, roles and the attendings offered for living donor cases are managed in the portal, https://portal.usctransplant.life.
+## What people can do
+
+**Everyone with a call-schedule role** (View, Edit or Admin):
+
+- View any week or month: services, time off, cross-cover and living donor cases.
+- View the year's monthly assignments and each fellow's time off and cross-cover.
+- Filter the view to themselves (fellows).
+
+**Fellows with Edit, and admins,** add and remove living donor cases. Fellows can remove cases from today on.
+
+**Admins** use `/admin/`. They can:
+
+- Set the monthly service assignments.
+- See who gets each email. People choose their own emails in the portal.
+- Turn automatic emails on or off.
+- Preview any week's or month's email, and send one-off emails with a message on top.
+
+Assignment rules:
+
+- All four services need a fellow every month.
+- Each fellow covers one service per month. Cross-cover doesn't count.
+- Liver or HPB may hold two fellows when exactly one is an HPB fellow. The portal marks HPB fellows.
+- The HPB fellow never stands in for the other fellow, so that fellow still needs cross-cover when off.
+
+The portal (https://portal.usctransplant.life) manages people, roles and the attendings offered for living donor cases.
 
 ## How it fits together
 
 ```
-Browser ──► this repository (GitHub Pages: the pages people see)
-              │  "Sign in with Google" → a Google ID token
-              ▼
-            Google Apps Script web app (private repository: timeoff-backend, files schedule*.gs)
-              checks the token, then reads and writes the fellowship Google Calendars and sends the emails
-              as the fellowship account
+Browser ──► this repository (GitHub Pages)
+   │  "Sign in with Google" or an emailed code → a sign-in token
+   ▼
+Apps Script web app (private repository: timeoff-backend, schedule*.gs)
+   checks the token, reads and writes the fellowship calendars,
+   and sends the weekly and monthly emails as the fellowship account
 ```
 
-The same server runs the time-off site (https://timeoff.usctransplant.life) and the portal (https://portal.usctransplant.life).
-The three sites share the member list (the portal) and one sign-in. This repository holds only the pages — no personal data.
+The same server runs the time-off site and the portal. The three sites share one member list and one sign-in.
 
-| File | What it is |
+## Files
+
+| File | Purpose |
 |---|---|
-| `index.html` | Schedule page (everyone) |
+| `index.html` | Schedule page for everyone |
 | `admin/index.html` | Admin page |
-| `assets/schedule.css` | Styles used only by this site |
-| `assets/styles.css`, `assets/ui.js`, `assets/api.js`, `assets/fonts/` | **Shared with the time-off site and the portal** — keep identical in all three repositories (a GitHub check compares them) |
-| `CNAME` | The custom domain for GitHub Pages |
+| `assets/schedule.css` | Styles for this site only |
+| `assets/api.js`, `assets/ui.js`, `assets/styles.css`, `assets/fonts/` | Shared with `timeoff` and `portal`. Keep them identical |
+| `.github/workflows/shared-files.yml` | Fails when the shared files differ from the other two sites |
+| `CNAME` | Custom domain for GitHub Pages |
 
 ## Making changes
 
-- Page changes: edit here and commit to `main`; GitHub Pages publishes within a minute or two.
-- Shared files (`styles.css`, `ui.js`, `api.js`, fonts): make the same change in the `timeoff` and `portal` repositories.
-  The **Shared files** check on the Actions tab fails when the copies differ.
-- The month rules on the admin page (all four services covered, one service per fellow, Liver/HPB pairs) come from the
-  server as the same function it checks every save with, so they're only written once (`scAssignmentErrors_`).
-- Rules (assignment rules, living donor case format, email schedule and wording) are in the private `timeoff-backend`
-  repository (`schedule*.gs`), deployed by GitHub Actions.
+- **Pages**: edit here and commit to `main`. GitHub Pages publishes within a minute or two.
+- **Shared files**: make the same change in `timeoff` and `portal`. The **Shared files** check catches differences.
+- **Month rules on the admin page**: the server sends them as source text of `scAssignmentErrors_`.
+  The page rebuilds the same function, so the rules exist in one place only.
+- **Assignment rules, case format, email schedule and wording**: edit `schedule*.gs` in `timeoff-backend`.
 
-Links in the emails open this site at a week or month, on that week's academic year: `/?week=2026-11-09&year=2026`
-or `/?month=2027-08&year=2027`. From May 1 to July 31 the header switches between this year and next.
+Email links open this site at a week or month, on that period's academic year:
+
+- `/?week=2026-11-09&year=2026`
+- `/?month=2027-08&year=2027`
+
+From May 1 to July 31, the header switches between this year and next.
 
 ## Hosting
 
-GitHub Pages: Settings → Pages → Deploy from branch `main` / root, custom domain `schedule.usctransplant.life`, Enforce HTTPS.
-DNS (Squarespace, domain usctransplant.life): CNAME `schedule` → `usc-transplant-surgery-fellowship.github.io`.
-Sign-in: the Google Cloud OAuth client lists `https://schedule.usctransplant.life` as an authorized JavaScript origin.
+- **GitHub Pages**: Settings → Pages → Deploy from branch `main`, folder `/`. Custom domain `schedule.usctransplant.life`. Enforce HTTPS on.
+- **DNS** (Squarespace, `usctransplant.life`): `CNAME schedule → usc-transplant-surgery-fellowship.github.io`.
+- **Sign-in**: the Google sign-in client lists `https://schedule.usctransplant.life` as an authorized JavaScript origin.

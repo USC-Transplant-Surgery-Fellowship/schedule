@@ -101,8 +101,8 @@
       });
     }
     /**
-     * Calls the server; on { ok, lines, view } re-draws everything and shows the lines in box.
-     * box can be a function returning the element, for boxes that are re-drawn (a month's row).
+     * Calls the server. On { ok, lines, view }, it redraws everything and shows the lines in box.
+     * box may be a function that returns the element. Use one for boxes that get redrawn, like a month's row.
      */
     function change(fn, args, box, okTitle, failTitle, after) {
       var target = function () { return typeof box === 'function' ? box() : box; };
@@ -137,7 +137,8 @@
     }
 
     /* ── monthly assignments ── */
-    // A month's choice for a service: { names: [one fellow, or a fellow and an HPB fellow], second: show the 2nd picker }.
+    // A month's choice for a service → { names, second }. names holds one fellow, or a fellow and an HPB fellow.
+    // second says whether to show the second picker.
     function currentOf(m, svc) {
       var s = m.services[svc], fellows = state.view.year.fellows;
       var known = s.names.length && s.names.every(function (n) { return fellows.indexOf(n) !== -1; });
@@ -149,17 +150,17 @@
       return a.names.slice().sort().join('|') === b.names.slice().sort().join('|');
     }
     function isHpb(n) { return state.view.year.hpbFellows.indexOf(n) !== -1; }
-    // The month rules come from the server as the very function it checks every save with, so they can't disagree.
+    // The server sends the month rules as the same function it checks every save with. Page and server always agree.
     var rulesSource = '', rules = null;
     function monthErrors(m, draft) {
-      if (!state.view.rules) return []; // a server from before the rules were shared: it still checks every save
+      if (!state.view.rules) return []; // without rules from the server, rely on its check at save time
       if (rulesSource !== state.view.rules) { rulesSource = state.view.rules; rules = new Function('return (' + rulesSource + ')')(); }
       var picks = {};
       state.view.year.services.forEach(function (svc) { picks[svc] = draft[svc].names; });
       return rules(picks, { services: state.view.year.services, shareable: state.view.year.shareable, hpb: state.view.year.hpbFellows, label: m.label });
     }
     function shareable(svc) { return (state.view.year.shareable || []).indexOf(svc) !== -1; }
-    /** Who can be the second fellow on a service with first: an HPB fellow if first isn't one, otherwise anyone who isn't. */
+    /** Who may join first on a service. If first isn't an HPB fellow, only HPB fellows; otherwise only non-HPB fellows. */
     function partnersFor(first) {
       return state.view.year.fellows.filter(function (n) { return n !== first && isHpb(n) !== isHpb(first); });
     }
@@ -173,7 +174,7 @@
       state.drafts[m.month][svc] = choice;
       renderMonths();
     }
-    /** What the server is sent: a name, or { names } for two fellows. */
+    /** What the page sends the server: a name, or { names } for two fellows. */
     function choiceToSave(m) {
       var d = draftOf(m), out = {};
       Object.keys(d).forEach(function (svc) { out[svc] = d[svc].names.length > 1 ? { names: d[svc].names } : (d[svc].names[0] || ''); });
@@ -205,7 +206,7 @@
           var d = draft[svc], names = d.names;
           var cell = el('div', 'svc-pick');
           cell.appendChild(el('span', 'svc-label', svc));
-          // keepSecond: leave the second picker open (it was opened, and the first picker changed).
+          // keepSecond keeps the second picker open after the first picker changes.
           var pick = function (first, second, keepSecond) {
             var next = [first, second].filter(function (n, i, all) { return n && all.indexOf(n) === i; });
             setDraft(m, svc, { names: next, second: next.length > 1 || (!!d.second && keepSecond) });
