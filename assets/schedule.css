@@ -101,26 +101,14 @@
 .when-list { list-style: none; margin: 0 0 12px; padding: 0; font-size: 14px; color: var(--muted); }
 .when-list li { margin-bottom: 2px; }
 .when-list b { color: var(--ink); }
-.addr-email { color: var(--muted); font-weight: 400; }
-#newRecipient { width: 100%; }
 .month .status { margin-top: 8px; }
 @media (max-width: 599px) { .month-grid { grid-template-columns: 1fr 1fr; } }
 
-/* ── admin: recipients, log ── */
-.plist { list-style: none; margin: 0; padding: 0; }
-.plist > li { padding: 10px 0; border-top: 1px solid var(--line); }
-.plist > li:first-child { border-top: 0; padding-top: 2px; }
-.plist .addr { font-weight: 700; overflow-wrap: anywhere; display: block; margin-bottom: 6px; }
-.toggles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.toggle {
-  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px;
-  font: inherit; font-size: 14px; font-weight: 700; color: var(--muted); cursor: pointer;
-  background: var(--sheet); border: 1.5px solid var(--line-strong); border-radius: 999px;
-}
-.toggle[aria-pressed="true"] { color: var(--gold-ink); background: var(--gold); border-color: var(--gold-edge); }
-.toggle[aria-pressed="true"]::before { content: '✓'; }
-.toggles .secondary.small { margin-left: auto; }
-.add-row { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 2px dotted var(--line-strong); }
+/* ── admin: who gets the emails, automatic emails, log ── */
+.who-gets { padding: 8px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.who-gets:first-child { border-top: 0; padding-top: 0; }
+.who-names { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 12px; color: var(--muted); }
+#recipientsCard .hint.small { margin: 10px 0 0; }
 .auto-state { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-weight: 800; font-size: 17px; }
 .auto-state .chip { margin-left: 0; font-size: 13px; }
 .next-list { list-style: none; margin: 0 0 12px; padding: 0; font-size: 15px; }

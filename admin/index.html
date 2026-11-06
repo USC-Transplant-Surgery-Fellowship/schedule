@@ -35,14 +35,10 @@
           <li><b>Monthly:</b> a week before the 1st.</li>
           <li><b>Previews:</b> the day before each, so you can fix the calendar first.</li>
         </ul>
-        <div class="status" id="recipientsStatus" role="status" aria-live="polite"></div>
-        <ul class="plist" id="recipients"></ul>
-        <div class="add-row">
-          <label class="label" for="newRecipient">Add someone from the portal</label>
-          <select id="newRecipient"></select>
-          <div class="toggles" id="newRecipientToggles"></div>
-          <button class="secondary" id="addRecipient" type="button">Add</button>
-        </div>
+        <div id="recipients"></div>
+        <p class="hint small">Everyone chooses their own emails in the portal, at either of their addresses; portal admins can change
+          anyone’s there (“Emails” next to their name). Fellows get the weekly and monthly emails, and admins the previews, unless they
+          turn them off. <a id="settingsLink" href="https://portal.usctransplant.life/#emails">Open the portal</a></p>
       </section>
 
       <section class="card" id="autoCard">
@@ -90,7 +86,7 @@
 
   <script>
   (function () {
-    var state = { view: null, drafts: {}, armed: '', newToggles: { weekly: true, monthly: true, preview: false },
+    var state = { view: null, drafts: {}, armed: '',
       oneOff: { kind: 'week', week: '', month: '', preview: null, seq: 0 } };
     var timer = null;
 
@@ -262,50 +258,19 @@
       });
     }
 
-    /* ── recipients ── */
-    function toggles(box, values, onChange) {
-      [['weekly', 'Weekly'], ['monthly', 'Monthly'], ['preview', 'Previews']].forEach(function (k) {
-        var t = button('toggle', k[1], function () { onChange(k[0], !values[k[0]]); });
-        t.setAttribute('aria-pressed', values[k[0]] ? 'true' : 'false');
-        box.appendChild(t);
-      });
-    }
-    function memberOf(email) { return (state.view.email.members || []).filter(function (p) { return p.email.toLowerCase() === String(email).toLowerCase(); })[0]; }
+    /* ── who gets the emails (set in the portal) ── */
     function renderRecipients() {
-      var ul = $('recipients'); clear(ul);
-      var list = state.view.email.recipients, all = state.view.email.allFellows;
-      list.forEach(function (r) {
-        var li = el('li');
-        // "All fellows" is everyone with the fellow role on the call schedule (from the portal), whoever they are that day.
-        var who = memberOf(r.email);
-        var addr = el('span', 'addr', r.email === all.key ? 'All fellows' : who ? who.name : r.email);
-        if (r.email === all.key) addr.title = all.names.join(', ') || 'No fellows yet';
-        else if (who) { addr.appendChild(el('br')); addr.appendChild(el('small', 'addr-email', r.email)); }
-        li.appendChild(addr);
-        var row = el('div', 'toggles');
-        toggles(row, r, function (k, v) {
-          var next = { type: 'update', key: r.email, email: r.email, weekly: r.weekly, monthly: r.monthly, preview: r.preview };
-          next[k] = v;
-          change('apiAdminChangeRecipients', [next], $('recipientsStatus'), 'Saved', 'Not saved');
-        });
-        row.appendChild(confirmButton('rm-' + r.email, 'secondary small', 'Remove', 'Tap again', function () {
-          change('apiAdminChangeRecipients', [{ type: 'remove', key: r.email }], $('recipientsStatus'), 'Removed', 'Not removed');
-        }));
-        li.appendChild(row);
-        ul.appendChild(li);
+      var box = $('recipients'), e = state.view.email; clear(box);
+      $('settingsLink').href = e.settingsUrl;
+      e.who.forEach(function (w) {
+        var sec = el('div', 'who-gets');
+        sec.appendChild(el('b', null, w.label + ' (' + w.people.length + ')'));
+        if (!w.people.length) { sec.appendChild(el('p', 'empty', 'Nobody.')); box.appendChild(sec); return; }
+        var ul = el('ul', 'who-names');
+        w.people.forEach(function (p) { var li = el('li', null, p.name); li.title = p.emails.join(', '); ul.appendChild(li); });
+        sec.appendChild(ul);
+        box.appendChild(sec);
       });
-      if (!list.length) ul.appendChild(el('li', 'empty', 'Nobody gets the emails yet.'));
-      // Add from the portal's member list ("All fellows" first, if it isn't on the list yet).
-      var sel = $('newRecipient'), keep = sel.value; clear(sel);
-      var on = function (e) { return list.some(function (r) { return r.email.toLowerCase() === e.toLowerCase(); }); };
-      var pickOne = el('option', null, 'Choose…'); pickOne.value = ''; sel.appendChild(pickOne);
-      if (!on(all.key)) { var o = el('option', null, 'All fellows'); o.value = all.key; sel.appendChild(o); }
-      (state.view.email.members || []).filter(function (p) { return !on(p.email); }).forEach(function (p) {
-        var op = el('option', null, p.name + ' (' + p.email + ')'); op.value = p.email; sel.appendChild(op);
-      });
-      sel.value = keep && Array.prototype.some.call(sel.options, function (x) { return x.value === keep; }) ? keep : '';
-      var nt = $('newRecipientToggles'); clear(nt);
-      toggles(nt, state.newToggles, function (k, v) { state.newToggles[k] = v; renderRecipients(); });
     }
 
     /* ── automatic emails ── */
@@ -351,7 +316,7 @@
       sel.value = o.month;
       var p = o.preview, n = p ? p.recipients.length : 0;
       $('mailSubject').textContent = p ? 'Subject: ' + p.subject : 'Loading the preview…';
-      $('mailTo').textContent = p ? 'To: ' + (n ? p.recipients.join(', ') : 'nobody — add recipients first') : '';
+      $('mailTo').textContent = p ? 'To: ' + (n ? p.recipients.join(', ') : 'nobody — people turn the emails on in the portal') : '';
       var live = $('sendLive');
       var armed = state.armed === 'send-live';
       live.textContent = armed ? 'Tap again to send to ' + n : 'Send to ' + plural(n, 'recipient');
@@ -381,12 +346,6 @@
       $('sendLive').addEventListener('click', function () {
         if (state.armed !== 'send-live') { state.armed = 'send-live'; renderOneOff(); return; }
         state.armed = ''; send('live');
-      });
-      $('addRecipient').addEventListener('click', function () {
-        var t = state.newToggles;
-        if (!$('newRecipient').value) { showStatus($('recipientsStatus'), 'error', 'Not added', ['Choose someone from the list first.']); return; }
-        change('apiAdminChangeRecipients', [{ type: 'add', email: $('newRecipient').value, weekly: t.weekly, monthly: t.monthly, preview: t.preview }],
-          $('recipientsStatus'), 'Added', 'Not added', function () { $('newRecipient').value = ''; refreshPreview(); });
       });
     }
     function send(mode) {
