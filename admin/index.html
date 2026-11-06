@@ -36,9 +36,7 @@
           <li><b>Previews:</b> the day before each, so you can fix the calendar first.</li>
         </ul>
         <div id="recipients"></div>
-        <p class="hint small">Everyone chooses their own emails in the portal, at either of their addresses; portal admins can change
-          anyone’s there (“Emails” next to their name). Fellows get the weekly and monthly emails, and admins the previews, unless they
-          turn them off. <a id="settingsLink" href="https://portal.usctransplant.life/#emails">Open the portal</a></p>
+        <p class="hint small"><a id="settingsLink" href="https://portal.usctransplant.life/#emails">Email settings in the portal</a></p>
       </section>
 
       <section class="card" id="autoCard">
@@ -282,7 +280,6 @@
       head.appendChild(el('span', 'chip ' + (e.automatic ? 'ok' : 'bad'), e.automatic ? 'On' : 'Off'));
       head.appendChild(document.createTextNode(e.automatic ? 'Sending on schedule' : 'Not sending automatically'));
       box.appendChild(head);
-      if (e.automatic) box.appendChild(el('p', 'hint', 'If an email can’t go out on time, it goes out within the hour after, while it’s still useful.'));
       if (!e.checking) box.appendChild(el('p', 'hint', 'The hourly check that sends them isn’t set up yet. Reload this page to set it up.'));
       var ul = el('ul', 'next-list');
       var w = el('li'); w.appendChild(el('b', null, 'Weekly: ' + n.weekly.send + ', ' + n.weekly.hours));
