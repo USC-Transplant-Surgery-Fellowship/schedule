@@ -38,11 +38,14 @@ The three sites share the member list (the portal) and one sign-in. This reposit
 
 - Page changes: edit here and commit to `main`; GitHub Pages publishes within a minute or two.
 - Shared files (`styles.css`, `ui.js`, `api.js`, fonts): make the same change in the `timeoff` and `portal` repositories.
-  The **Shared files** check on the Actions tab warns when the copies differ.
+  The **Shared files** check on the Actions tab fails when the copies differ.
+- The month rules on the admin page (all four services covered, one service per fellow, Liver/HPB pairs) come from the
+  server as the same function it checks every save with, so they're only written once (`scAssignmentErrors_`).
 - Rules (assignment rules, living donor case format, email schedule and wording) are in the private `timeoff-backend`
   repository (`schedule*.gs`), deployed by GitHub Actions.
 
-Links in the emails open this site at a week or month: `/?week=2026-11-09` or `/?month=2026-12`.
+Links in the emails open this site at a week or month, on that week's academic year: `/?week=2026-11-09&year=2026`
+or `/?month=2027-08&year=2027`. From May 1 to July 31 the header switches between this year and next.
 
 ## Hosting
 
