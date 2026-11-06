@@ -1,6 +1,6 @@
 /*
- * Schedule site only. The shared look (pager header, colors, sheets, keys, buttons, light/dark) is in styles.css,
- * which is the same file on all three sites (time off, call schedule, portal) — change it in all of them together.
+ * Schedule site only. styles.css holds the shared look: pager header, colors, sheets, keys, buttons, light and dark.
+ * styles.css is identical on all three sites. Change it in all three repositories together.
  */
 
 /* ── layout: phones keep one column in reading order; computers get two columns (styles.css: main.split) ── */
